@@ -429,7 +429,7 @@ textarea { resize: vertical; }
     <div class="f">
       <label>GOOGLE APPS SCRIPT URL</label>
       <input type="url" id="set-gas" placeholder="https://script.google.com/macros/s/.../exec">
-      <div class="hint">スプレッドシートへの読み書き先。GASをウェブアプリとしてデプロイしたURLを貼り付けます（アクセスは「全員」でデプロイしてください）。</div>
+      <div class="hint">スプレッドシートへの読み書き先。Apps Scriptの「デプロイ」→「ウェブアプリ」で発行される、<b>.../exec で終わるURL</b>を貼り付けます（アクセスは「全員」でデプロイしてください）。デプロイ画面下部の「ライブラリ」のURLは別物なので使わないでください。</div>
     </div>
     <div class="f">
       <label>ANTHROPIC API KEY</label>
@@ -1003,9 +1003,22 @@ function openSettings() {
 }
 function closeSettings() { $('settings-modal').classList.remove('show'); }
 
+function isValidGasWebAppUrl(url) {
+  return /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec\/?(\?.*)?$/.test(url);
+}
+
 function saveSettings() {
   const gas = $('set-gas').value.trim();
   const key = $('set-key').value.trim();
+
+  if (gas && !isValidGasWebAppUrl(gas)) {
+    const msg = gas.indexOf('/macros/library/') !== -1
+      ? 'それは「ライブラリ」のURLです。Apps Scriptの「デプロイ」→「ウェブアプリ」で発行される、.../exec で終わるURLを入力してください'
+      : 'GAS URLの形式が正しくないようです。.../exec で終わるウェブアプリのURLを入力してください';
+    showToast(msg, true);
+    return;
+  }
+
   if (gas) localStorage.setItem('gasUrl', gas); else localStorage.removeItem('gasUrl');
   if (key) localStorage.setItem('apiKey', key); else localStorage.removeItem('apiKey');
   closeSettings();
