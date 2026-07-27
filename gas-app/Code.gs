@@ -18,7 +18,11 @@ var CURRENT_STAGE_OPTIONS = [
   '具体的なリスクを取る',
 ];
 
-// フォーム項目の定義（スプレッドシートのヘッダー行にもそのまま使う）
+// フォーム項目の定義。label はフォームでの表示名、sheetLabel は
+// スプレッドシートの列見出し専用の表示名（省略時はlabelを使う）。
+// O:仕事(occupation) と D:仕事(dWork) は label が同じ「仕事」だが、
+// スプレッドシートは見出し1行だけでセクションの区別がつかないため
+// sheetLabel で区別する。
 var FIELDS = [
   { key: 'name', label: '名前' },
   { key: 'relationship', label: '関係' },
@@ -29,7 +33,7 @@ var FIELDS = [
   { key: 'fatherJob', label: '仕事：父' },
   { key: 'motherJob', label: '仕事：母' },
   { key: 'siblings', label: '兄弟' },
-  { key: 'occupation', label: '仕事' },
+  { key: 'occupation', label: '仕事', sheetLabel: '仕事（現在）' },
   { key: 'education', label: '最終学歴' },
   { key: 'educationReason', label: 'なぜその選択をしたのか？' },
   { key: 'rHobby', label: '趣味' },
@@ -41,7 +45,7 @@ var FIELDS = [
   { key: 'mWhySpend', label: 'なぜそこにお金を使うのか？' },
   { key: 'dVision', label: 'ビジョン' },
   { key: 'dWhyVision', label: 'なぜそのビジョンがあるのか？' },
-  { key: 'dWork', label: '仕事' },
+  { key: 'dWork', label: '仕事', sheetLabel: '仕事（将来）' },
   { key: 'dPrivate', label: 'プライベート' },
   { key: 'dFamily', label: '家族' },
   { key: 'dFutureFamily', label: 'これからの家族' },
@@ -55,7 +59,23 @@ var FIELDS = [
 ];
 
 var META_COLUMNS = ['id', 'createdAt', 'updatedAt'];
-var ALL_COLUMNS = META_COLUMNS.concat(FIELDS.map(function (f) { return f.key; }));
+var META_LABELS = { id: 'ID', createdAt: '登録日時', updatedAt: '更新日時' };
+
+/** 内部キーからスプレッドシートの列見出し（日本語）を返す */
+function fieldLabel_(key) {
+  if (META_LABELS[key]) return META_LABELS[key];
+  for (var i = 0; i < FIELDS.length; i++) {
+    if (FIELDS[i].key === key) return FIELDS[i].sheetLabel || FIELDS[i].label;
+  }
+  return key;
+}
+
+var ALL_COLUMNS = META_COLUMNS.concat(FIELDS.map(function (f) { return f.key; })); // 内部キー（アプリ内部・API用）
+var ALL_LABELS = ALL_COLUMNS.map(fieldLabel_); // スプレッドシートの列見出し（日本語）
+
+// 列見出し（日本語） -> 内部キー の逆引き
+var LABEL_TO_KEY = {};
+ALL_COLUMNS.forEach(function (key, i) { LABEL_TO_KEY[ALL_LABELS[i]] = key; });
 
 /**
  * doGet は2つの用途を兼ねる:
@@ -142,28 +162,55 @@ function getSheet_() {
     sheet = ss.insertSheet(SHEET_NAME);
   }
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(ALL_COLUMNS);
+    sheet.appendRow(ALL_LABELS);
     sheet.setFrozenRows(1);
     return sheet;
   }
-  // 既存シートに項目が追加された場合、ヘッダー行に不足している列を追記する
+
   var lastCol = sheet.getLastColumn();
-  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  var missing = ALL_COLUMNS.filter(function (c) { return headers.indexOf(c) === -1; });
-  if (missing.length > 0) {
-    sheet.getRange(1, lastCol + 1, 1, missing.length).setValues([missing]);
+  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+
+  // 各列がどの内部キーに対応するか判定する（現行の日本語ラベル／旧・英語キー表記のどちらでも対応）
+  var resolvedKeys = headerRow.map(function (cell) {
+    if (LABEL_TO_KEY[cell]) return LABEL_TO_KEY[cell];
+    if (ALL_COLUMNS.indexOf(cell) !== -1) return cell; // 旧バージョンの英語キー表記の列
+    return null; // 未知の列（ユーザーが独自に追加した列など）は触らない
+  });
+
+  // 判明した列は、位置とデータはそのままに見出しだけ日本語ラベルへ書き換える
+  var newHeaderRow = headerRow.slice();
+  var headerChanged = false;
+  resolvedKeys.forEach(function (key, i) {
+    if (!key) return;
+    var label = fieldLabel_(key);
+    if (newHeaderRow[i] !== label) {
+      newHeaderRow[i] = label;
+      headerChanged = true;
+    }
+  });
+  if (headerChanged) {
+    sheet.getRange(1, 1, 1, lastCol).setValues([newHeaderRow]);
   }
+
+  // まだ存在しない項目（新しく追加されたフィールドなど）を末尾に追記する
+  var presentKeys = resolvedKeys.filter(function (k) { return !!k; });
+  var missingKeys = ALL_COLUMNS.filter(function (k) { return presentKeys.indexOf(k) === -1; });
+  if (missingKeys.length > 0) {
+    sheet.getRange(1, lastCol + 1, 1, missingKeys.length).setValues([missingKeys.map(fieldLabel_)]);
+  }
+
   return sheet;
 }
 
-function rowToObject_(headers, row) {
+function rowToObject_(headerLabels, row) {
   var obj = {};
-  for (var i = 0; i < headers.length; i++) {
+  for (var i = 0; i < headerLabels.length; i++) {
+    var key = LABEL_TO_KEY[headerLabels[i]] || headerLabels[i];
     var value = row[i];
     if (value instanceof Date) {
-      obj[headers[i]] = value.toISOString();
+      obj[key] = value.toISOString();
     } else {
-      obj[headers[i]] = value === undefined || value === null ? '' : String(value);
+      obj[key] = value === undefined || value === null ? '' : String(value);
     }
   }
   return obj;
@@ -196,8 +243,8 @@ function getFriend(id) {
   return null;
 }
 
-function findRowIndexById_(sheet, headers, id) {
-  var idColIndex = headers.indexOf('id');
+function findRowIndexById_(sheet, headerLabels, id) {
+  var idColIndex = headerLabels.indexOf(fieldLabel_('id'));
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return -1;
   var ids = sheet.getRange(2, idColIndex + 1, lastRow - 1, 1).getValues();
@@ -225,20 +272,21 @@ function saveFriend(data) {
   lock.waitLock(30000);
   try {
     var sheet = getSheet_();
-    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var headerLabels = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     var now = new Date().toISOString();
     var id = data.id ? String(data.id) : Utilities.getUuid();
 
-    var existingRow = data.id ? findRowIndexById_(sheet, headers, data.id) : -1;
-    var existingRowValues = existingRow !== -1 ? sheet.getRange(existingRow, 1, 1, headers.length).getValues()[0] : null;
+    var existingRow = data.id ? findRowIndexById_(sheet, headerLabels, data.id) : -1;
+    var existingRowValues = existingRow !== -1 ? sheet.getRange(existingRow, 1, 1, headerLabels.length).getValues()[0] : null;
     var createdAt = now;
     if (existingRowValues) {
-      var createdAtColIndex = headers.indexOf('createdAt');
+      var createdAtColIndex = headerLabels.indexOf(fieldLabel_('createdAt'));
       var existingCreatedAt = existingRowValues[createdAtColIndex];
       if (existingCreatedAt) createdAt = existingCreatedAt;
     }
 
-    var rowValues = headers.map(function (key, idx) {
+    var rowValues = headerLabels.map(function (label, idx) {
+      var key = LABEL_TO_KEY[label] || label;
       if (key === 'id') return id;
       if (key === 'createdAt') return createdAt;
       if (key === 'updatedAt') return now;
@@ -252,12 +300,12 @@ function saveFriend(data) {
     });
 
     if (existingRow !== -1) {
-      sheet.getRange(existingRow, 1, 1, headers.length).setValues([rowValues]);
+      sheet.getRange(existingRow, 1, 1, headerLabels.length).setValues([rowValues]);
     } else {
       sheet.appendRow(rowValues);
     }
 
-    return rowToObject_(headers, rowValues);
+    return rowToObject_(headerLabels, rowValues);
   } finally {
     lock.releaseLock();
   }
