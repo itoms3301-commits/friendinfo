@@ -221,6 +221,11 @@ textarea { resize: vertical; }
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 .toast.err { background: var(--shu); }
+/* エラーメッセージは省略せず、詳しい原因が読めるように折り返して全文表示する */
+.toast.err.show {
+  white-space: pre-wrap; text-overflow: clip; overflow: visible; max-width: 85vw; width: max-content;
+  border-radius: 14px; text-align: left; line-height: 1.5;
+}
 </style>
 </head>
 <body>
@@ -958,15 +963,29 @@ ${memo}
       }),
     });
 
-    if (!res.ok) throw new Error('APIエラー');
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const errJson = await res.json();
+        detail = (errJson && errJson.error && errJson.error.message) || '';
+      } catch (e2) { /* エラー本文がJSONでない場合は無視 */ }
+      throw new Error(`APIエラー(${res.status})${detail ? ': ' + detail : ''}`);
+    }
+
     const json = await res.json();
     const text = (json.content || []).map(b => b.text || '').join('');
-    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    let parsed;
+    try {
+      parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    } catch (e2) {
+      throw new Error('AIの回答をJSONとして解釈できませんでした: ' + text.slice(0, 200));
+    }
 
     applyAiResult(parsed);
     showToast('AIの読み取り結果をフォームに反映しました。内容を確認してください');
   } catch (err) {
-    showToast('AIでの読み取りに失敗しました。手入力してください', true);
+    console.error('AI自動入力エラー:', err);
+    showToast('AIでの読み取りに失敗しました: ' + (err && err.message ? err.message : String(err)), true);
   } finally {
     $('scan-overlay').classList.remove('show');
     $('aiFillBtn').disabled = false;
@@ -1030,7 +1049,8 @@ function showToast(msg, isErr) {
   t.textContent = msg;
   t.className = `toast show ${isErr ? 'err' : ''}`;
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove('show'), 3200);
+  // エラーは詳しい原因を読めるよう長めに表示する
+  t._timer = setTimeout(() => t.classList.remove('show'), isErr ? 6000 : 3200);
 }
 
 init();
