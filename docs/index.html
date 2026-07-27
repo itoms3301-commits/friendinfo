@@ -157,9 +157,7 @@ textarea { resize: vertical; }
 .note-input { margin-top: 8px; display: none; }
 .note-input.show { display: block; }
 
-.birthday-row { display: flex; align-items: center; gap: 6px; }
-.birthday-row select { width: auto; flex: 1; }
-.birthday-unit { font-size: 13px; color: var(--muted); flex-shrink: 0; }
+.help-text { display: block; font-size: 11px; color: var(--muted); margin-top: 4px; }
 
 .section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 14px 0; }
 .section summary { font-weight: 700; cursor: pointer; padding: 4px 0; font-size: 14px; }
@@ -313,17 +311,12 @@ textarea { resize: vertical; }
       </div>
       <div class="field-block">
         <label>誕生日</label>
-        <div class="birthday-row">
-          <select class="plain" id="f-birth-month"></select>
-          <span class="birthday-unit">月</span>
-          <select class="plain" id="f-birth-day"></select>
-          <span class="birthday-unit">日</span>
-        </div>
-        <input type="hidden" name="birthday" id="f-birthday">
+        <input type="text" name="birthday" id="f-birthday" placeholder="例：8月15日 / 8/15">
+        <span class="help-text">年は入力しなくてもOK（並び替えには月日だけを使用します）</span>
       </div>
       <div class="field-block">
         <label>家の退去月</label>
-        <input type="month" name="moveOutMonth">
+        <input type="text" name="moveOutMonth" placeholder="例：2026年9月 / 2026/09">
       </div>
 
       <div class="field-block">
@@ -450,7 +443,7 @@ const CURRENT_STAGE_OPTIONS = ['情報提供', '可能性を感じる', '求め�
 
 // AI自動入力の対象となる全項目（キー: ラベル）
 const AI_FIELD_LABELS = {
-  name: '名前', relationship: '関係', birthday: '誕生日(YYYY-MM-DD、年が不明なら2000年で)', moveOutMonth: '家の退去月(YYYY-MM)',
+  name: '名前', relationship: '関係', birthday: '誕生日（例: 8月15日。年が不明なら月日のみでよい）', moveOutMonth: '家の退去月（例: 2026年9月）',
   hometown: '出身', currentLocation: '現在の居住地', fatherJob: '父の仕事', motherJob: '母の仕事', siblings: '兄弟',
   occupation: '現在の仕事', education: '最終学歴', educationReason: 'なぜその進路を選んだか',
   rHobby: '趣味', rWhyLike: '趣味を好きな理由', rHowStarted: '趣味を始めたきっかけ', rClubs: '小中高大学の部活', rWhyClub: 'なぜその部活を選んだか',
@@ -480,7 +473,6 @@ function uuid() {
 // ============ init ============
 function init() {
   if (!localStorage.getItem('gasUrl')) $('setup-banner').classList.add('show');
-  initBirthdaySelects();
   renderChipGroup('bookStatus', BOOK_STATUS_OPTIONS);
   renderChipGroup('circleStatus', CIRCLE_STATUS_OPTIONS);
   renderChipGroup('currentStage', CURRENT_STAGE_OPTIONS);
@@ -537,23 +529,47 @@ function postToGas(payload) {
 }
 
 // ============ 一覧・検索・並び替え ============
+// 誕生日はフリーテキスト入力なので、よくある書き方を柔軟に解釈する。
+// 対応例: "8月15日" "1990年8月15日" "8/15" "08/15" "1990/8/15" "2000-08-15"（過去の内部形式）
+function parseBirthdayParts(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  let m = s.match(/^(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日?$/);
+  if (!m) m = s.match(/^(?:(\d{4})[-\/])?(\d{1,2})[-\/](\d{1,2})$/);
+  if (!m) return null;
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return { month, day };
+}
+
 function daysUntilNextBirthday(birthday) {
-  if (!birthday) return null;
-  const parts = birthday.split('-').map(Number);
-  if (parts.length !== 3 || parts.some(isNaN)) return null;
-  const [, month, day] = parts;
+  const parts = parseBirthdayParts(birthday);
+  if (!parts) return null;
   let today = new Date(); today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  let next = new Date(today.getFullYear(), month - 1, day);
-  if (next < today) next = new Date(today.getFullYear() + 1, month - 1, day);
+  let next = new Date(today.getFullYear(), parts.month - 1, parts.day);
+  if (next < today) next = new Date(today.getFullYear() + 1, parts.month - 1, parts.day);
   return Math.round((next.getTime() - today.getTime()) / 86400000);
 }
 
+// 退去月も同様にフリーテキストで受け取る。対応例: "2026年9月" "2026/09" "2026-09"（過去の内部形式）
+function parseMoveOutParts(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  let m = s.match(/^(\d{4})年(\d{1,2})月$/);
+  if (!m) m = s.match(/^(\d{4})[-\/](\d{1,2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return null;
+  return { year, month };
+}
+
 function monthsFromNow(yearMonth) {
-  if (!yearMonth) return null;
-  const parts = yearMonth.split('-').map(Number);
-  if (parts.length !== 2 || parts.some(isNaN)) return null;
+  const parts = parseMoveOutParts(yearMonth);
+  if (!parts) return null;
   const today = new Date();
-  return (parts[0] - today.getFullYear()) * 12 + (parts[1] - 1 - today.getMonth());
+  return (parts.year - today.getFullYear()) * 12 + (parts.month - 1 - today.getMonth());
 }
 
 function upcomingSortKey(value) {
@@ -563,20 +579,20 @@ function upcomingSortKey(value) {
 
 function formatBirthday(b) {
   if (!b) return null;
-  const p = b.split('-');
-  return p.length === 3 ? `${Number(p[1])}/${Number(p[2])}` : b;
+  const parts = parseBirthdayParts(b);
+  return parts ? `${parts.month}/${parts.day}` : b;
 }
 
 function formatBirthdayLong(b) {
   if (!b) return '';
-  const p = b.split('-');
-  return p.length === 3 ? `${Number(p[1])}月${Number(p[2])}日` : b;
+  const parts = parseBirthdayParts(b);
+  return parts ? `${parts.month}月${parts.day}日` : b;
 }
 
 function formatMoveOut(v) {
   if (!v) return null;
-  const p = v.split('-');
-  return p.length === 2 ? `${p[0]}/${Number(p[1])}` : v;
+  const parts = parseMoveOutParts(v);
+  return parts ? `${parts.year}/${parts.month}` : v;
 }
 
 function rankOf(options, value) {
@@ -685,35 +701,6 @@ function updateNoteVisibility(fieldName) {
   const noteInput = fieldName === 'bookStatus' ? $('f-bookStatusNote') : fieldName === 'circleStatus' ? $('f-circleStatusNote') : null;
   if (!noteInput) return;
   noteInput.classList.toggle('show', getChipValue(fieldName) === 'その他');
-}
-
-// ============ 誕生日（月・日のプルダウン、カレンダー入力は使わない） ============
-function initBirthdaySelects() {
-  const monthSel = $('f-birth-month');
-  const daySel = $('f-birth-day');
-  monthSel.innerHTML = '<option value="">--</option>' + Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
-  daySel.innerHTML = '<option value="">--</option>' + Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
-  monthSel.addEventListener('change', syncBirthdayHidden);
-  daySel.addEventListener('change', syncBirthdayHidden);
-}
-
-function syncBirthdayHidden() {
-  const m = $('f-birth-month').value;
-  const d = $('f-birth-day').value;
-  // 年は並び替え・表示のいずれにも使わないため、ダミーの年で固定する
-  $('f-birthday').value = (m && d) ? `2000-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : '';
-}
-
-function setBirthdaySelects(value) {
-  const parts = String(value || '').split('-').map(Number);
-  if (parts.length === 3 && !parts.some(isNaN)) {
-    $('f-birth-month').value = String(parts[1]);
-    $('f-birth-day').value = String(parts[2]);
-  } else {
-    $('f-birth-month').value = '';
-    $('f-birth-day').value = '';
-  }
-  syncBirthdayHidden();
 }
 
 // ============ 詳細表示（閲覧・コピー） ============
@@ -841,7 +828,6 @@ async function openEntry(id) {
       const el = formEl.elements.namedItem(key);
       if (el) el.value = friend[key] || '';
     });
-    setBirthdaySelects(friend.birthday);
     setChipValue('bookStatus', friend.bookStatus || '');
     setChipValue('circleStatus', friend.circleStatus || '');
     setChipValue('currentStage', friend.currentStage || '');
@@ -998,10 +984,6 @@ function applyAiResult(parsed) {
           (key === 'currentStage' && CURRENT_STAGE_OPTIONS.includes(value))) {
         setChipValue(key, value);
       }
-      return;
-    }
-    if (key === 'birthday') {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) setBirthdaySelects(value);
       return;
     }
     const el = formEl.elements.namedItem(key);
