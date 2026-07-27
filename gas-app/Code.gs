@@ -54,12 +54,68 @@ var FIELDS = [
 var META_COLUMNS = ['id', 'createdAt', 'updatedAt'];
 var ALL_COLUMNS = META_COLUMNS.concat(FIELDS.map(function (f) { return f.key; }));
 
-function doGet() {
+/**
+ * doGet は2つの用途を兼ねる:
+ *  - パラメータなしでブラウザから直接開かれた場合: Apps Script上で完結するHTML UIを返す
+ *  - ?callback=xxx&action=... の場合: GitHub Pages等の外部サイトから叩くJSONP API
+ *    （外部オリジンからの fetch はCORSの制約を受けるため、<script>タグ読み込みで
+ *    　回避できるJSONP形式でレスポンスを返す）
+ */
+function doGet(e) {
+  var params = (e && e.parameter) || {};
+  if (params.callback) {
+    return handleApiGet_(params);
+  }
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
     .setTitle('友達管理')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function handleApiGet_(params) {
+  var result;
+  try {
+    switch (params.action) {
+      case 'get':
+        result = { ok: true, data: getFriend(params.id) };
+        break;
+      case 'list':
+      default:
+        result = { ok: true, data: listFriends() };
+        break;
+    }
+  } catch (err) {
+    result = { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+  var body = params.callback + '(' + JSON.stringify(result) + ')';
+  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
+
+/**
+ * doPost はGitHub Pages等の外部サイトからの書き込み用JSON APIとして使う。
+ * 外部オリジンからのPOSTはCORSプリフライトの都合上レスポンスを読めない
+ * （no-corsで送信される想定）ため、成否はクライアント側で楽観的に扱う。
+ */
+function doPost(e) {
+  var result;
+  try {
+    var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    switch (body.action) {
+      case 'save':
+        result = { ok: true, data: saveFriend(body.data || {}) };
+        break;
+      case 'delete':
+        result = { ok: true, data: deleteFriend(body.id) };
+        break;
+      default:
+        result = { ok: false, error: 'unknown action' };
+        break;
+    }
+  } catch (err) {
+    result = { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 }
 
 function include(filename) {
@@ -141,8 +197,12 @@ function findRowIndexById_(sheet, headers, id) {
 }
 
 /**
- * 友達データを新規登録 or 更新する。
- * data.id が空なら新規登録、あれば該当行を更新する。
+ * 友達データを新規登録 or 更新する（upsert）。
+ * data.id に既存の友達のIDが指定されていればその行を更新し、
+ * 指定がない、または一致する行が無ければ新規登録として扱う。
+ * ID未指定の場合はサーバー側で採番する（GitHub Pages版クライアントは
+ * no-corsでPOSTするためレスポンスを読めず、事前にクライアント側でUUIDを
+ * 発行してdata.idに含める運用を基本とする）。
  * 戻り値: 保存された友達データ（idを含む）
  */
 function saveFriend(data) {
@@ -164,9 +224,6 @@ function saveFriend(data) {
       var createdAtColIndex = headers.indexOf('createdAt');
       var existingCreatedAt = sheet.getRange(existingRow, createdAtColIndex + 1).getValue();
       if (existingCreatedAt) createdAt = existingCreatedAt;
-    } else if (data.id && existingRow === -1) {
-      // 更新対象のIDが見つからない場合はエラーにする（削除済みの可能性）
-      throw new Error('更新対象の友達が見つかりませんでした。ページを再読み込みしてください。');
     }
 
     var rowValues = headers.map(function (key) {

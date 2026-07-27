@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F6F4EF">
+<title>友達管理</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --paper: #F6F4EF;
+  --card: #FFFFFF;
+  --ink: #24252A;
+  --ai: #33518A;
+  --shu: #D8442E;
+  --muted: #8B8A85;
+  --line: #E4E1D8;
+  --ok: #2E7D4F;
+  --sans: 'Zen Kaku Gothic New', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --mincho: 'Shippori Mincho', serif;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  max-width: 480px;
+  margin: 0 auto;
+  overscroll-behavior-y: none;
+  padding-bottom: 24px;
+}
+button { font-family: var(--sans); cursor: pointer; border: none; background: none; color: inherit; }
+input, select, textarea { font-family: var(--sans); color: var(--ink); }
+
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px 10px;
+}
+header h1 { font-family: var(--mincho); font-size: 20px; font-weight: 800; letter-spacing: 0.3em; }
+.gear-btn {
+  width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; font-size: 18px; color: var(--muted);
+}
+.gear-btn:active { background: var(--line); }
+
+.setup-banner {
+  display: none; margin: 0 20px 12px; background: #FFF6E8; border: 1px solid #EAD9B8;
+  border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.6;
+  align-items: center; justify-content: space-between; gap: 10px;
+}
+.setup-banner.show { display: flex; }
+.setup-banner button { background: var(--ink); color: #fff; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+
+.summary { margin: 4px 20px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sum-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.sum-card .lbl { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 4px; }
+.sum-card .val { font-family: var(--mono); font-size: 21px; font-weight: 600; }
+.sum-card .val small { font-size: 12px; color: var(--muted); margin-left: 3px; font-weight: 400; }
+
+.actions { margin: 0 20px 18px; }
+.act-add {
+  width: 100%; background: var(--ink); color: #fff; border-radius: 14px; padding: 17px 16px;
+  font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform .1s;
+}
+.act-add:active { transform: scale(0.98); }
+
+.toolbar { margin: 0 20px 10px; display: flex; gap: 8px; }
+#searchInput {
+  flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; font-size: 14px; outline: none;
+}
+#sortSelect {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 10px; font-size: 12px; outline: none; max-width: 132px;
+}
+
+.list-wrap { padding: 0 20px 12px; }
+.list-title { font-size: 12px; color: var(--muted); letter-spacing: 0.12em; margin-bottom: 8px; padding-left: 2px; }
+.receipt { background: var(--card); border: 1px solid var(--line); border-radius: 3px; padding: 6px 0 0; box-shadow: 0 1px 3px rgba(36,37,42,0.05); }
+.receipt::after {
+  content: ''; display: block; height: 10px;
+  background:
+    linear-gradient(-45deg, transparent 70%, var(--card) 71%) 0 0 / 12px 100%,
+    linear-gradient(45deg, transparent 70%, var(--card) 71%) 6px 0 / 12px 100%;
+  margin-bottom: -1px;
+}
+.f-row { padding: 12px 16px; border-bottom: 1px dashed var(--line); }
+.f-row:last-of-type { border-bottom: none; }
+.f-row .top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.f-row .name { font-weight: 700; font-size: 15px; }
+.f-row .rel { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: 8px; }
+.f-row .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.info-chip {
+  font-size: 11px; padding: 2px 8px; border-radius: 100px; background: var(--paper); color: var(--muted);
+  border: 1px solid var(--line); white-space: nowrap;
+}
+.info-chip.pink { background: #FBE9EC; color: var(--shu); border-color: #F3D0D6; }
+.info-chip.blue { background: #EAF0FB; color: var(--ai); border-color: #D6E1F5; }
+
+.empty-note { text-align: center; color: var(--muted); font-size: 13px; padding: 30px 16px; line-height: 1.8; }
+
+/* ---------- Entry sheet ---------- */
+.sheet {
+  position: fixed; inset: 0; background: var(--paper); max-width: 480px; margin: 0 auto;
+  transform: translateY(100%); transition: transform .28s cubic-bezier(.32,.72,.33,1);
+  z-index: 50; display: flex; flex-direction: column;
+}
+.sheet.open { transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+
+.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 8px; }
+.sheet-head .title { font-weight: 700; font-size: 16px; }
+.close-btn { font-size: 15px; color: var(--muted); padding: 8px 4px; }
+.sheet-body { flex: 1; overflow-y: auto; padding: 4px 20px 130px; -webkit-overflow-scrolling: touch; }
+
+.ai-box {
+  background: #EFF3FA; border: 1px solid #D6E1F5; border-radius: 12px; padding: 12px 14px; margin-bottom: 18px;
+}
+.ai-box label { display: block; font-size: 11px; color: var(--ai); letter-spacing: 0.08em; margin-bottom: 6px; font-weight: 700; }
+.ai-box textarea {
+  width: 100%; background: #fff; border: 1px solid #D6E1F5; border-radius: 8px; padding: 10px 12px;
+  font-size: 13px; outline: none; resize: vertical; min-height: 60px;
+}
+.ai-box .hint { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+.ai-btn {
+  margin-top: 8px; background: var(--ai); color: #fff; border-radius: 8px; padding: 9px 14px;
+  font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;
+}
+.ai-btn:disabled { opacity: 0.5; }
+
+.field-block { margin-bottom: 16px; }
+.field-block > label { display: block; font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+.field-block .required { color: var(--shu); font-weight: 700; font-size: 10px; margin-left: 4px; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-grid .wide { grid-column: 1 / -1; }
+
+input[type="text"], input[type="date"], input[type="month"], textarea, select.plain {
+  width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 11px 12px; font-size: 14px; outline: none;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--ai); }
+textarea { resize: vertical; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  border: 1px solid var(--line); background: var(--card); border-radius: 100px; padding: 8px 14px;
+  font-size: 13px; font-weight: 500; transition: all .12s;
+}
+.chip.sel { background: var(--ai); border-color: var(--ai); color: #fff; font-weight: 700; }
+
+.section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 14px 0; }
+.section summary { font-weight: 700; cursor: pointer; padding: 4px 0; font-size: 14px; }
+.section[open] summary { margin-bottom: 8px; }
+
+.submit-bar { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 20px calc(14px + var(--safe-b)); background: linear-gradient(transparent, var(--paper) 30%); display: flex; gap: 8px; }
+.submit-btn {
+  flex: 1; background: var(--shu); color: #fff; border-radius: 14px; padding: 16px; font-size: 16px; font-weight: 700;
+  letter-spacing: 0.03em; box-shadow: 0 4px 14px rgba(216,68,46,0.3); transition: transform .1s, opacity .2s;
+}
+.submit-btn:disabled { opacity: 0.4; box-shadow: none; }
+.submit-btn:not(:disabled):active { transform: scale(0.98); }
+.delete-btn {
+  background: var(--card); border: 1.5px solid #F3D0D6; color: var(--shu); border-radius: 14px; padding: 16px 18px; font-weight: 700;
+}
+
+.scan-overlay {
+  position: fixed; inset: 0; background: rgba(36,37,42,0.92); z-index: 80; display: none;
+  flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #fff; text-align: center; padding: 0 30px;
+}
+.scan-overlay.show { display: flex; }
+.scan-pulse { font-size: 14px; letter-spacing: 0.08em; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) { .scan-pulse { animation: none; } }
+
+.stamp-overlay { position: fixed; inset: 0; z-index: 90; display: none; align-items: center; justify-content: center; pointer-events: none; }
+.stamp-overlay.show { display: flex; }
+.hanko {
+  width: 110px; height: 110px; border: 4px solid var(--shu); border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-family: var(--mincho); font-size: 26px; font-weight: 800; color: var(--shu); letter-spacing: 0.1em;
+  background: rgba(255,255,255,0.92); transform: scale(2.2) rotate(-14deg); opacity: 0;
+  animation: stamp .45s cubic-bezier(.2,1.6,.4,1) forwards; writing-mode: vertical-rl;
+}
+@keyframes stamp { 60% { transform: scale(0.94) rotate(-8deg); opacity: 1; } 100% { transform: scale(1) rotate(-8deg); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .hanko { animation: none; transform: rotate(-8deg); opacity: 1; } }
+
+.modal-bg { position: fixed; inset: 0; background: rgba(36,37,42,0.45); z-index: 60; display: none; align-items: flex-end; justify-content: center; }
+.modal-bg.show { display: flex; }
+.modal { background: var(--paper); border-radius: 18px 18px 0 0; padding: 20px 20px calc(28px + var(--safe-b)); width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 16px; max-height: 85vh; overflow-y: auto; }
+.modal h2 { font-size: 16px; font-weight: 700; }
+.modal .f label { display: block; font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+.modal .f input { width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 14px; font-family: var(--mono); outline: none; }
+.modal .f input:focus { border-color: var(--ai); }
+.modal .f .hint { font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.6; }
+.modal-save { background: var(--ink); color: #fff; border-radius: 12px; padding: 15px; font-size: 15px; font-weight: 700; }
+
+.toast {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-70px); background: var(--ink); color: #fff;
+  border-radius: 100px; padding: 11px 20px; font-size: 13px; z-index: 100; transition: transform .3s cubic-bezier(.34,1.4,.64,1);
+  white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.err { background: var(--shu); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>友達管理</h1>
+  <button class="gear-btn" onclick="openSettings()" aria-label="設定">⚙︎</button>
+</header>
+
+<div class="setup-banner" id="setup-banner">
+  <span>はじめに接続設定をしましょう</span>
+  <button onclick="openSettings()">設定する</button>
+</div>
+
+<div class="summary">
+  <div class="sum-card">
+    <div class="lbl">誕生日が近い（30日以内）</div>
+    <div class="val" id="sum-birthday">0<small>人</small></div>
+  </div>
+  <div class="sum-card">
+    <div class="lbl">退去が近い（3ヶ月以内）</div>
+    <div class="val" id="sum-moveout">0<small>人</small></div>
+  </div>
+</div>
+
+<div class="actions">
+  <button class="act-add" onclick="openEntry()">＋ 友達を登録</button>
+</div>
+
+<div class="toolbar">
+  <input type="search" id="searchInput" placeholder="名前・関係・メモで検索">
+  <select id="sortSelect" class="plain">
+    <option value="birthday">誕生日が近い順</option>
+    <option value="moveOutMonth">退去が近い順</option>
+    <option value="name">名前順</option>
+    <option value="updatedAt">更新が新しい順</option>
+  </select>
+</div>
+
+<div class="list-wrap">
+  <div class="list-title" id="listCount"></div>
+  <div class="receipt">
+    <div id="friendList"></div>
+  </div>
+</div>
+
+<!-- Entry sheet -->
+<div class="sheet" id="sheet">
+  <div class="sheet-head">
+    <button class="close-btn" onclick="closeEntry()">← 戻る</button>
+    <span class="title" id="sheet-title">友達を登録</span>
+    <span style="width:52px"></span>
+  </div>
+  <div class="sheet-body">
+    <div class="ai-box">
+      <label>🪄 メモから自動入力（任意）</label>
+      <textarea id="ai-memo" placeholder="例）大学の友人の花子。福岡出身で今は東京に住んでる。8月15日生まれ。テニスサークル「びすとろ」所属で…など、話した内容をそのまま貼り付けてOK"></textarea>
+      <div class="hint">Claude APIキーを設定すると、メモ文章から名前や誕生日などの項目を自動で読み取ってフォームに反映します。反映後は内容を確認・修正してから登録してください。</div>
+      <button type="button" class="ai-btn" id="aiFillBtn" onclick="handleAiFill()">✨ AIで自動入力</button>
+    </div>
+
+    <form id="friendForm">
+      <input type="hidden" id="f-id" name="id" value="">
+
+      <div class="field-block">
+        <label>名前<span class="required">必須</span></label>
+        <input type="text" name="name" id="f-name" placeholder="山田 太郎" required>
+      </div>
+      <div class="field-grid">
+        <div class="field-block wide">
+          <label>関係</label>
+          <input type="text" name="relationship" placeholder="大学の友人 など">
+        </div>
+        <div class="field-block">
+          <label>誕生日</label>
+          <input type="date" name="birthday">
+        </div>
+        <div class="field-block">
+          <label>家の退去月</label>
+          <input type="month" name="moveOutMonth">
+        </div>
+      </div>
+
+      <div class="field-block">
+        <label>本</label>
+        <div class="chip-row" data-chip-field="bookStatus"></div>
+      </div>
+      <div class="field-block">
+        <label>サークル</label>
+        <div class="chip-row" data-chip-field="circleStatus"></div>
+      </div>
+      <div class="field-grid">
+        <div class="field-block">
+          <label>紹介</label>
+          <input type="text" name="introStatus" placeholder="未">
+        </div>
+      </div>
+      <div class="field-block">
+        <label>現在の状態</label>
+        <div class="chip-row" data-chip-field="currentStage"></div>
+      </div>
+
+      <details class="section" open>
+        <summary>F：Family（家族・出身）</summary>
+        <div class="field-grid">
+          <div class="field-block"><label>出身</label><input type="text" name="hometown"></div>
+          <div class="field-block"><label>現在</label><input type="text" name="currentLocation"></div>
+          <div class="field-block"><label>仕事：父</label><input type="text" name="fatherJob"></div>
+          <div class="field-block"><label>仕事：母</label><input type="text" name="motherJob"></div>
+          <div class="field-block wide"><label>兄弟</label><input type="text" name="siblings"></div>
+        </div>
+      </details>
+
+      <details class="section">
+        <summary>O：Occupation（学歴・仕事）</summary>
+        <div class="field-grid">
+          <div class="field-block wide"><label>最終学歴</label><input type="text" name="education"></div>
+          <div class="field-block wide"><label>なぜその選択をしたのか？</label><textarea name="educationReason" rows="2"></textarea></div>
+        </div>
+      </details>
+
+      <details class="section">
+        <summary>R：Recreation（趣味・部活）</summary>
+        <div class="field-grid">
+          <div class="field-block wide"><label>なぜ好きなのか？</label><textarea name="rWhyLike" rows="2"></textarea></div>
+          <div class="field-block wide"><label>始めたきっかけは？</label><textarea name="rHowStarted" rows="2"></textarea></div>
+          <div class="field-block wide"><label>小中高大学の部活</label><input type="text" name="rClubs"></div>
+          <div class="field-block wide"><label>なぜその部活を選んだのか？</label><textarea name="rWhyClub" rows="2"></textarea></div>
+        </div>
+      </details>
+
+      <details class="section">
+        <summary>M：Message / Money</summary>
+        <div class="field-grid">
+          <div class="field-block wide"><label>どんなことにワクワクするのか？</label><textarea name="mExcitement" rows="2"></textarea></div>
+          <div class="field-block wide"><label>なぜそこにお金を使うのか？</label><textarea name="mWhySpend" rows="2"></textarea></div>
+        </div>
+      </details>
+
+      <details class="section">
+        <summary>D：Dream（ビジョン）</summary>
+        <div class="field-grid">
+          <div class="field-block wide"><label>なぜそのビジョンがあるのか？</label><textarea name="dWhyVision" rows="2"></textarea></div>
+          <div class="field-block wide"><label>仕事</label><textarea name="dWork" rows="2"></textarea></div>
+          <div class="field-block wide"><label>プライベート</label><textarea name="dPrivate" rows="2"></textarea></div>
+          <div class="field-block wide"><label>家族</label><textarea name="dFamily" rows="2"></textarea></div>
+          <div class="field-block wide"><label>これからの家族</label><textarea name="dFutureFamily" rows="2"></textarea></div>
+        </div>
+      </details>
+
+      <details class="section">
+        <summary>その他</summary>
+        <div class="field-grid">
+          <div class="field-block wide"><label>本（その他の場合の詳細）</label><input type="text" name="bookStatusNote"></div>
+          <div class="field-block wide"><label>サークル（その他の場合の詳細）</label><input type="text" name="circleStatusNote"></div>
+          <div class="field-block wide"><label>メモ</label><textarea name="memo" rows="3"></textarea></div>
+        </div>
+      </details>
+    </form>
+  </div>
+  <div class="submit-bar">
+    <button type="button" class="delete-btn" id="deleteBtn" hidden onclick="handleDelete()">削除</button>
+    <button type="button" class="submit-btn" id="submitBtn" onclick="handleSubmit()">登録する</button>
+  </div>
+</div>
+
+<!-- AI scanning overlay -->
+<div class="scan-overlay" id="scan-overlay">
+  <div class="scan-pulse">AIがメモを読み取っています…</div>
+</div>
+
+<!-- Stamp -->
+<div class="stamp-overlay" id="stamp-overlay">
+  <div class="hanko">登録</div>
+</div>
+
+<!-- Settings -->
+<div class="modal-bg" id="settings-modal" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <h2>接続設定</h2>
+    <div class="f">
+      <label>GOOGLE APPS SCRIPT URL</label>
+      <input type="url" id="set-gas" placeholder="https://script.google.com/macros/s/.../exec">
+      <div class="hint">スプレッドシートへの読み書き先。GASをウェブアプリとしてデプロイしたURLを貼り付けます（アクセスは「全員」でデプロイしてください）。</div>
+    </div>
+    <div class="f">
+      <label>ANTHROPIC API KEY</label>
+      <input type="password" id="set-key" placeholder="sk-ant-...">
+      <div class="hint">メモからの自動入力に使用。手入力だけなら未設定でも使えます。</div>
+    </div>
+    <button class="modal-save" onclick="saveSettings()">保存する</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ 項目定義 ============
+const BOOK_STATUS_OPTIONS = ['未', '金父', 'CFQ', 'その他'];
+const CIRCLE_STATUS_OPTIONS = ['未', 'びすとろ', 'Change', 'その他'];
+const CURRENT_STAGE_OPTIONS = ['情報提供', '可能性を感じる', '求めているものを明確にする', '学ぶ人を決める', '具体的なリスクを取る'];
+
+// AI自動入力の対象となる全項目（キー: ラベル）
+const AI_FIELD_LABELS = {
+  name: '名前', relationship: '関係', birthday: '誕生日(YYYY-MM-DD)', moveOutMonth: '家の退去月(YYYY-MM)',
+  hometown: '出身', currentLocation: '現在の居住地', fatherJob: '父の仕事', motherJob: '母の仕事', siblings: '兄弟',
+  education: '最終学歴', educationReason: 'なぜその進路を選んだか',
+  rWhyLike: '趣味を好きな理由', rHowStarted: '趣味を始めたきっかけ', rClubs: '小中高大学の部活', rWhyClub: 'なぜその部活を選んだか',
+  mExcitement: 'ワクワクすること', mWhySpend: 'お金を使う理由',
+  dWhyVision: 'ビジョンを持つ理由', dWork: '仕事の将来像', dPrivate: 'プライベートの将来像', dFamily: '家族について', dFutureFamily: 'これからの家族について',
+  memo: 'その他メモ',
+};
+
+const store = {
+  get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+};
+
+const $ = id => document.getElementById(id);
+let friends = [];
+let editingId = null;
+let loadSeq = 0; // loadFriends()の多重呼び出しで古いレスポンスが新しい結果を上書きしないようにする
+
+function uuid() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+// ============ init ============
+function init() {
+  if (!localStorage.getItem('gasUrl')) $('setup-banner').classList.add('show');
+  renderChipGroup('bookStatus', BOOK_STATUS_OPTIONS);
+  renderChipGroup('circleStatus', CIRCLE_STATUS_OPTIONS);
+  renderChipGroup('currentStage', CURRENT_STAGE_OPTIONS);
+
+  $('searchInput').addEventListener('input', renderList);
+  $('sortSelect').addEventListener('change', renderList);
+
+  loadFriends();
+}
+
+// ============ JSONP (GASからの読み取り) ============
+function jsonp(url, params) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'jsonp_cb_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    const timer = setTimeout(() => { cleanup(); reject(new Error('タイムアウトしました')); }, 15000);
+    function cleanup() { clearTimeout(timer); delete window[cbName]; script.remove(); }
+    window[cbName] = data => { cleanup(); resolve(data); };
+    script.onerror = () => { cleanup(); reject(new Error('通信に失敗しました')); };
+    const qs = new URLSearchParams(Object.assign({}, params, { callback: cbName })).toString();
+    script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + qs;
+    document.body.appendChild(script);
+  });
+}
+
+async function loadFriends() {
+  const gasUrl = localStorage.getItem('gasUrl');
+  if (!gasUrl) { friends = []; renderList(); return; }
+  const seq = ++loadSeq;
+  try {
+    const res = await jsonp(gasUrl, { action: 'list' });
+    if (seq !== loadSeq) return; // 後発のloadFriends()が既に呼ばれていれば、この古い結果は破棄する
+    if (!res.ok) throw new Error(res.error || '取得に失敗しました');
+    friends = res.data || [];
+    renderList();
+  } catch (err) {
+    if (seq !== loadSeq) return;
+    showToast('友達データの取得に失敗しました: ' + err.message, true);
+  }
+}
+
+// ============ GASへの書き込み（no-cors POST、fire-and-forget） ============
+function postToGas(payload) {
+  const gasUrl = localStorage.getItem('gasUrl');
+  if (!gasUrl) return Promise.reject(new Error('先にGAS URLを設定してください'));
+  return fetch(gasUrl, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+  });
+}
+
+// ============ 一覧・検索・並び替え ============
+function daysUntilNextBirthday(birthday) {
+  if (!birthday) return null;
+  const parts = birthday.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return null;
+  const [, month, day] = parts;
+  let today = new Date(); today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  let next = new Date(today.getFullYear(), month - 1, day);
+  if (next < today) next = new Date(today.getFullYear() + 1, month - 1, day);
+  return Math.round((next.getTime() - today.getTime()) / 86400000);
+}
+
+function monthsFromNow(yearMonth) {
+  if (!yearMonth) return null;
+  const parts = yearMonth.split('-').map(Number);
+  if (parts.length !== 2 || parts.some(isNaN)) return null;
+  const today = new Date();
+  return (parts[0] - today.getFullYear()) * 12 + (parts[1] - 1 - today.getMonth());
+}
+
+function upcomingSortKey(value) {
+  if (value === null || value === undefined) return Infinity;
+  return value >= 0 ? value : 1000000 - value;
+}
+
+function formatBirthday(b) {
+  if (!b) return null;
+  const p = b.split('-');
+  return p.length === 3 ? `${Number(p[1])}/${Number(p[2])}` : b;
+}
+
+function formatMoveOut(v) {
+  if (!v) return null;
+  const p = v.split('-');
+  return p.length === 2 ? `${p[0]}/${Number(p[1])}` : v;
+}
+
+function rankOf(options, value) {
+  const idx = options.indexOf(value);
+  return idx === -1 ? options.length : idx;
+}
+
+function matchesSearch(f, text) {
+  if (!text) return true;
+  const hay = `${f.name} ${f.relationship} ${f.memo}`.toLowerCase();
+  return hay.indexOf(text.toLowerCase()) !== -1;
+}
+
+function renderSummary() {
+  const birthdaySoon = friends.filter(f => { const d = daysUntilNextBirthday(f.birthday); return d !== null && d <= 30; }).length;
+  const moveOutSoon = friends.filter(f => { const m = monthsFromNow(f.moveOutMonth); return m !== null && m >= 0 && m <= 3; }).length;
+  $('sum-birthday').innerHTML = `${birthdaySoon}<small>人</small>`;
+  $('sum-moveout').innerHTML = `${moveOutSoon}<small>人</small>`;
+}
+
+function renderList() {
+  renderSummary();
+  const searchText = $('searchInput').value;
+  const sortKey = $('sortSelect').value;
+
+  let list = friends.filter(f => matchesSearch(f, searchText));
+  list.sort((a, b) => {
+    let ka, kb;
+    if (sortKey === 'name') { ka = a.name || ''; kb = b.name || ''; }
+    else if (sortKey === 'birthday') { ka = upcomingSortKey(daysUntilNextBirthday(a.birthday)); kb = upcomingSortKey(daysUntilNextBirthday(b.birthday)); }
+    else if (sortKey === 'moveOutMonth') { ka = upcomingSortKey(monthsFromNow(a.moveOutMonth)); kb = upcomingSortKey(monthsFromNow(b.moveOutMonth)); }
+    else { ka = a.updatedAt || ''; kb = b.updatedAt || ''; }
+    if (ka < kb) return sortKey === 'updatedAt' ? 1 : -1;
+    if (ka > kb) return sortKey === 'updatedAt' ? -1 : 1;
+    return (a.name || '').localeCompare(b.name || '', 'ja');
+  });
+
+  $('listCount').textContent = `${list.length} / ${friends.length}人`;
+
+  const el = $('friendList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-note">${friends.length === 0 ? 'まだ友達が登録されていません。<br>「＋ 友達を登録」から追加しましょう。' : '該当する友達が見つかりませんでした。'}</div>`;
+    return;
+  }
+
+  el.innerHTML = list.map(f => {
+    const chips = [];
+    const bDays = daysUntilNextBirthday(f.birthday);
+    if (f.birthday) {
+      const label = bDays === 0 ? '🎂 今日' : (bDays <= 30 ? `🎂 ${formatBirthday(f.birthday)}(あと${bDays}日)` : `🎂 ${formatBirthday(f.birthday)}`);
+      chips.push(`<span class="info-chip ${bDays <= 30 ? 'pink' : ''}">${label}</span>`);
+    }
+    const mMonths = monthsFromNow(f.moveOutMonth);
+    if (f.moveOutMonth) {
+      const label = mMonths !== null && mMonths <= 3 && mMonths >= 0 ? `🏠 ${formatMoveOut(f.moveOutMonth)}(あと${mMonths}ヶ月)` : `🏠 ${formatMoveOut(f.moveOutMonth)}`;
+      chips.push(`<span class="info-chip ${mMonths !== null && mMonths >= 0 && mMonths <= 3 ? 'blue' : ''}">${label}</span>`);
+    }
+    if (f.bookStatus) chips.push(`<span class="info-chip">📚 ${escapeHtml(f.bookStatus)}</span>`);
+    if (f.currentStage) chips.push(`<span class="info-chip">⭐ ${escapeHtml(f.currentStage)}</span>`);
+
+    return `<div class="f-row" onclick="openEntry('${f.id}')">
+      <div class="top">
+        <span class="name">${escapeHtml(f.name || '(名前未登録)')}</span>
+        <span class="rel">${escapeHtml(f.relationship || '')}</span>
+      </div>
+      ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ============ チップ選択（本・サークル・現在の状態） ============
+function renderChipGroup(fieldName, options) {
+  const wrap = document.querySelector(`.chip-row[data-chip-field="${fieldName}"]`);
+  const current = wrap.dataset.value || '';
+  wrap.innerHTML = options.map(opt =>
+    `<button type="button" class="chip ${opt === current ? 'sel' : ''}" data-value="${escapeHtml(opt)}">${escapeHtml(opt)}</button>`
+  ).join('');
+  wrap.querySelectorAll('.chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = wrap.dataset.value === btn.dataset.value ? '' : btn.dataset.value; // 再タップで解除
+      wrap.dataset.value = val;
+      renderChipGroup(fieldName, options);
+    });
+  });
+}
+
+function setChipValue(fieldName, value) {
+  const wrap = document.querySelector(`.chip-row[data-chip-field="${fieldName}"]`);
+  wrap.dataset.value = value || '';
+  const options = fieldName === 'bookStatus' ? BOOK_STATUS_OPTIONS : fieldName === 'circleStatus' ? CIRCLE_STATUS_OPTIONS : CURRENT_STAGE_OPTIONS;
+  renderChipGroup(fieldName, options);
+}
+
+function getChipValue(fieldName) {
+  return document.querySelector(`.chip-row[data-chip-field="${fieldName}"]`).dataset.value || '';
+}
+
+// ============ 登録・編集シート ============
+function openEntry(id) {
+  const formEl = $('friendForm');
+  formEl.reset();
+  $('f-id').value = '';
+  $('ai-memo').value = '';
+  setChipValue('bookStatus', '');
+  setChipValue('circleStatus', '');
+  setChipValue('currentStage', '');
+  document.querySelectorAll('#friendForm details.section').forEach((d, i) => { d.open = i === 0; });
+
+  editingId = null;
+  const friend = id ? friends.find(f => f.id === id) : null;
+
+  if (friend) {
+    editingId = friend.id;
+    $('f-id').value = friend.id;
+    Object.keys(friend).forEach(key => {
+      const el = formEl.elements.namedItem(key);
+      if (el) el.value = friend[key] || '';
+    });
+    setChipValue('bookStatus', friend.bookStatus || '');
+    setChipValue('circleStatus', friend.circleStatus || '');
+    setChipValue('currentStage', friend.currentStage || '');
+    document.querySelectorAll('#friendForm details.section').forEach(d => { d.open = true; });
+    $('sheet-title').textContent = `${friend.name || '(名前未登録)'} を編集`;
+    $('submitBtn').textContent = '更新する';
+    $('deleteBtn').hidden = false;
+  } else {
+    $('sheet-title').textContent = '友達を登録';
+    $('submitBtn').textContent = '登録する';
+    $('deleteBtn').hidden = true;
+  }
+
+  $('sheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeEntry() {
+  $('sheet').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function collectFormData() {
+  const formEl = $('friendForm');
+  const data = {};
+  new FormData(formEl).forEach((value, key) => { data[key] = value; });
+  data.bookStatus = getChipValue('bookStatus');
+  data.circleStatus = getChipValue('circleStatus');
+  data.currentStage = getChipValue('currentStage');
+  return data;
+}
+
+async function handleSubmit() {
+  const data = collectFormData();
+  if (!data.name || !data.name.trim()) {
+    showToast('名前を入力してください', true);
+    $('f-name').focus();
+    return;
+  }
+  if (!data.id) data.id = uuid();
+
+  const submitBtn = $('submitBtn');
+  submitBtn.disabled = true;
+  const wasEditing = !!editingId;
+
+  try {
+    await postToGas({ action: 'save', data });
+
+    // 楽観的にローカルの一覧も更新
+    const now = new Date().toISOString();
+    const idx = friends.findIndex(f => f.id === data.id);
+    if (idx >= 0) friends[idx] = Object.assign({}, friends[idx], data, { updatedAt: now });
+    else friends.unshift(Object.assign({ createdAt: now, updatedAt: now }, data));
+
+    $('stamp-overlay').classList.add('show');
+    if (navigator.vibrate) navigator.vibrate(30);
+    setTimeout(() => {
+      $('stamp-overlay').classList.remove('show');
+      closeEntry();
+      renderList();
+      showToast(wasEditing ? '更新しました' : '登録しました。続けて次の友達を登録できます');
+      loadFriends(); // サーバーの状態と再同期
+    }, 700);
+  } catch (err) {
+    showToast('保存できませんでした: ' + err.message, true);
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+async function handleDelete() {
+  if (!editingId) return;
+  if (!window.confirm('この友達の情報を削除しますか？この操作は取り消せません。')) return;
+
+  try {
+    await postToGas({ action: 'delete', id: editingId });
+    friends = friends.filter(f => f.id !== editingId);
+    closeEntry();
+    renderList();
+    showToast('削除しました');
+    loadFriends();
+  } catch (err) {
+    showToast('削除できませんでした: ' + err.message, true);
+  }
+}
+
+// ============ AIメモ自動入力 ============
+async function handleAiFill() {
+  const memo = $('ai-memo').value.trim();
+  if (!memo) { showToast('メモを入力してください', true); return; }
+
+  const apiKey = localStorage.getItem('apiKey');
+  if (!apiKey) {
+    showToast('AI自動入力にはAPIキーの設定が必要です', true);
+    openSettings();
+    return;
+  }
+
+  $('aiFillBtn').disabled = true;
+  $('scan-overlay').classList.add('show');
+
+  try {
+    const fieldList = Object.entries(AI_FIELD_LABELS).map(([k, label]) => `"${k}": ${label}`).join('\n');
+    const prompt = `以下は友人についてのメモです。内容から読み取れる項目だけをJSONで返してください。読み取れない項目はキー自体を含めないでください。説明やコードブロックは不要で、JSONのみを返してください。
+
+項目一覧（キー: 説明）:
+${fieldList}
+"bookStatus": 本の状態。次のいずれかのみ: ${JSON.stringify(BOOK_STATUS_OPTIONS)}
+"circleStatus": サークルの状態。次のいずれかのみ: ${JSON.stringify(CIRCLE_STATUS_OPTIONS)}
+
+メモ:
+"""
+${memo}
+"""`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-5',
+        max_tokens: 1500,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!res.ok) throw new Error('APIエラー');
+    const json = await res.json();
+    const text = (json.content || []).map(b => b.text || '').join('');
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+
+    applyAiResult(parsed);
+    showToast('AIの読み取り結果をフォームに反映しました。内容を確認してください');
+  } catch (err) {
+    showToast('AIでの読み取りに失敗しました。手入力してください', true);
+  } finally {
+    $('scan-overlay').classList.remove('show');
+    $('aiFillBtn').disabled = false;
+  }
+}
+
+function applyAiResult(parsed) {
+  const formEl = $('friendForm');
+  Object.keys(parsed).forEach(key => {
+    const value = parsed[key];
+    if (value === undefined || value === null || value === '') return;
+    if (key === 'bookStatus' || key === 'circleStatus' || key === 'currentStage') {
+      if ((key === 'bookStatus' && BOOK_STATUS_OPTIONS.includes(value)) ||
+          (key === 'circleStatus' && CIRCLE_STATUS_OPTIONS.includes(value)) ||
+          (key === 'currentStage' && CURRENT_STAGE_OPTIONS.includes(value))) {
+        setChipValue(key, value);
+      }
+      return;
+    }
+    const el = formEl.elements.namedItem(key);
+    if (el) el.value = value;
+  });
+  document.querySelectorAll('#friendForm details.section').forEach(d => { d.open = true; });
+}
+
+// ============ 設定 ============
+function openSettings() {
+  $('set-gas').value = localStorage.getItem('gasUrl') || '';
+  $('set-key').value = localStorage.getItem('apiKey') || '';
+  $('settings-modal').classList.add('show');
+}
+function closeSettings() { $('settings-modal').classList.remove('show'); }
+
+function saveSettings() {
+  const gas = $('set-gas').value.trim();
+  const key = $('set-key').value.trim();
+  if (gas) localStorage.setItem('gasUrl', gas); else localStorage.removeItem('gasUrl');
+  if (key) localStorage.setItem('apiKey', key); else localStorage.removeItem('apiKey');
+  closeSettings();
+  $('setup-banner').classList.toggle('show', !gas);
+  showToast('設定を保存しました');
+  loadFriends();
+}
+
+// ============ toast ============
+function showToast(msg, isErr) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = `toast show ${isErr ? 'err' : ''}`;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+init();
+</script>
+</body>
+</html>
