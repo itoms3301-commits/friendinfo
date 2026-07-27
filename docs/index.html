@@ -154,6 +154,13 @@ textarea { resize: vertical; }
 }
 .chip.sel { background: var(--ai); border-color: var(--ai); color: #fff; font-weight: 700; }
 
+.note-input { margin-top: 8px; display: none; }
+.note-input.show { display: block; }
+
+.birthday-row { display: flex; align-items: center; gap: 6px; }
+.birthday-row select { width: auto; flex: 1; }
+.birthday-unit { font-size: 13px; color: var(--muted); flex-shrink: 0; }
+
 .section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 14px 0; }
 .section summary { font-weight: 700; cursor: pointer; padding: 4px 0; font-size: 14px; }
 .section[open] summary { margin-bottom: 8px; }
@@ -274,28 +281,34 @@ textarea { resize: vertical; }
         <label>名前<span class="required">必須</span></label>
         <input type="text" name="name" id="f-name" placeholder="山田 太郎" required>
       </div>
-      <div class="field-grid">
-        <div class="field-block wide">
-          <label>関係</label>
-          <input type="text" name="relationship" placeholder="大学の友人 など">
+      <div class="field-block">
+        <label>関係</label>
+        <input type="text" name="relationship" placeholder="大学の友人 など">
+      </div>
+      <div class="field-block">
+        <label>誕生日</label>
+        <div class="birthday-row">
+          <select class="plain" id="f-birth-month"></select>
+          <span class="birthday-unit">月</span>
+          <select class="plain" id="f-birth-day"></select>
+          <span class="birthday-unit">日</span>
         </div>
-        <div class="field-block">
-          <label>誕生日</label>
-          <input type="date" name="birthday">
-        </div>
-        <div class="field-block">
-          <label>家の退去月</label>
-          <input type="month" name="moveOutMonth">
-        </div>
+        <input type="hidden" name="birthday" id="f-birthday">
+      </div>
+      <div class="field-block">
+        <label>家の退去月</label>
+        <input type="month" name="moveOutMonth">
       </div>
 
       <div class="field-block">
         <label>本</label>
         <div class="chip-row" data-chip-field="bookStatus"></div>
+        <input type="text" name="bookStatusNote" id="f-bookStatusNote" class="note-input" placeholder="本のタイトルなど、その他の内容を入力">
       </div>
       <div class="field-block">
         <label>サークル</label>
         <div class="chip-row" data-chip-field="circleStatus"></div>
+        <input type="text" name="circleStatusNote" id="f-circleStatusNote" class="note-input" placeholder="サークル名など、その他の内容を入力">
       </div>
       <div class="field-grid">
         <div class="field-block">
@@ -322,6 +335,7 @@ textarea { resize: vertical; }
       <details class="section">
         <summary>O：Occupation（学歴・仕事）</summary>
         <div class="field-grid">
+          <div class="field-block wide"><label>仕事</label><input type="text" name="occupation"></div>
           <div class="field-block wide"><label>最終学歴</label><input type="text" name="education"></div>
           <div class="field-block wide"><label>なぜその選択をしたのか？</label><textarea name="educationReason" rows="2"></textarea></div>
         </div>
@@ -330,6 +344,7 @@ textarea { resize: vertical; }
       <details class="section">
         <summary>R：Recreation（趣味・部活）</summary>
         <div class="field-grid">
+          <div class="field-block wide"><label>趣味</label><input type="text" name="rHobby"></div>
           <div class="field-block wide"><label>なぜ好きなのか？</label><textarea name="rWhyLike" rows="2"></textarea></div>
           <div class="field-block wide"><label>始めたきっかけは？</label><textarea name="rHowStarted" rows="2"></textarea></div>
           <div class="field-block wide"><label>小中高大学の部活</label><input type="text" name="rClubs"></div>
@@ -348,6 +363,7 @@ textarea { resize: vertical; }
       <details class="section">
         <summary>D：Dream（ビジョン）</summary>
         <div class="field-grid">
+          <div class="field-block wide"><label>ビジョン</label><input type="text" name="dVision"></div>
           <div class="field-block wide"><label>なぜそのビジョンがあるのか？</label><textarea name="dWhyVision" rows="2"></textarea></div>
           <div class="field-block wide"><label>仕事</label><textarea name="dWork" rows="2"></textarea></div>
           <div class="field-block wide"><label>プライベート</label><textarea name="dPrivate" rows="2"></textarea></div>
@@ -359,8 +375,6 @@ textarea { resize: vertical; }
       <details class="section">
         <summary>その他</summary>
         <div class="field-grid">
-          <div class="field-block wide"><label>本（その他の場合の詳細）</label><input type="text" name="bookStatusNote"></div>
-          <div class="field-block wide"><label>サークル（その他の場合の詳細）</label><input type="text" name="circleStatusNote"></div>
           <div class="field-block wide"><label>メモ</label><textarea name="memo" rows="3"></textarea></div>
         </div>
       </details>
@@ -410,12 +424,12 @@ const CURRENT_STAGE_OPTIONS = ['情報提供', '可能性を感じる', '求め�
 
 // AI自動入力の対象となる全項目（キー: ラベル）
 const AI_FIELD_LABELS = {
-  name: '名前', relationship: '関係', birthday: '誕生日(YYYY-MM-DD)', moveOutMonth: '家の退去月(YYYY-MM)',
+  name: '名前', relationship: '関係', birthday: '誕生日(YYYY-MM-DD、年が不明なら2000年で)', moveOutMonth: '家の退去月(YYYY-MM)',
   hometown: '出身', currentLocation: '現在の居住地', fatherJob: '父の仕事', motherJob: '母の仕事', siblings: '兄弟',
-  education: '最終学歴', educationReason: 'なぜその進路を選んだか',
-  rWhyLike: '趣味を好きな理由', rHowStarted: '趣味を始めたきっかけ', rClubs: '小中高大学の部活', rWhyClub: 'なぜその部活を選んだか',
+  occupation: '現在の仕事', education: '最終学歴', educationReason: 'なぜその進路を選んだか',
+  rHobby: '趣味', rWhyLike: '趣味を好きな理由', rHowStarted: '趣味を始めたきっかけ', rClubs: '小中高大学の部活', rWhyClub: 'なぜその部活を選んだか',
   mExcitement: 'ワクワクすること', mWhySpend: 'お金を使う理由',
-  dWhyVision: 'ビジョンを持つ理由', dWork: '仕事の将来像', dPrivate: 'プライベートの将来像', dFamily: '家族について', dFutureFamily: 'これからの家族について',
+  dVision: '将来のビジョン', dWhyVision: 'ビジョンを持つ理由', dWork: '仕事の将来像', dPrivate: 'プライベートの将来像', dFamily: '家族について', dFutureFamily: 'これからの家族について',
   memo: 'その他メモ',
 };
 
@@ -440,9 +454,12 @@ function uuid() {
 // ============ init ============
 function init() {
   if (!localStorage.getItem('gasUrl')) $('setup-banner').classList.add('show');
+  initBirthdaySelects();
   renderChipGroup('bookStatus', BOOK_STATUS_OPTIONS);
   renderChipGroup('circleStatus', CIRCLE_STATUS_OPTIONS);
   renderChipGroup('currentStage', CURRENT_STAGE_OPTIONS);
+  updateNoteVisibility('bookStatus');
+  updateNoteVisibility('circleStatus');
 
   $('searchInput').addEventListener('input', renderList);
   $('sortSelect').addEventListener('change', renderList);
@@ -614,6 +631,7 @@ function renderChipGroup(fieldName, options) {
       const val = wrap.dataset.value === btn.dataset.value ? '' : btn.dataset.value; // 再タップで解除
       wrap.dataset.value = val;
       renderChipGroup(fieldName, options);
+      updateNoteVisibility(fieldName);
     });
   });
 }
@@ -623,10 +641,47 @@ function setChipValue(fieldName, value) {
   wrap.dataset.value = value || '';
   const options = fieldName === 'bookStatus' ? BOOK_STATUS_OPTIONS : fieldName === 'circleStatus' ? CIRCLE_STATUS_OPTIONS : CURRENT_STAGE_OPTIONS;
   renderChipGroup(fieldName, options);
+  updateNoteVisibility(fieldName);
 }
 
 function getChipValue(fieldName) {
   return document.querySelector(`.chip-row[data-chip-field="${fieldName}"]`).dataset.value || '';
+}
+
+// 本・サークルで「その他」が選ばれたときだけ、詳細入力欄を表示する
+function updateNoteVisibility(fieldName) {
+  const noteInput = fieldName === 'bookStatus' ? $('f-bookStatusNote') : fieldName === 'circleStatus' ? $('f-circleStatusNote') : null;
+  if (!noteInput) return;
+  noteInput.classList.toggle('show', getChipValue(fieldName) === 'その他');
+}
+
+// ============ 誕生日（月・日のプルダウン、カレンダー入力は使わない） ============
+function initBirthdaySelects() {
+  const monthSel = $('f-birth-month');
+  const daySel = $('f-birth-day');
+  monthSel.innerHTML = '<option value="">--</option>' + Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
+  daySel.innerHTML = '<option value="">--</option>' + Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
+  monthSel.addEventListener('change', syncBirthdayHidden);
+  daySel.addEventListener('change', syncBirthdayHidden);
+}
+
+function syncBirthdayHidden() {
+  const m = $('f-birth-month').value;
+  const d = $('f-birth-day').value;
+  // 年は並び替え・表示のいずれにも使わないため、ダミーの年で固定する
+  $('f-birthday').value = (m && d) ? `2000-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : '';
+}
+
+function setBirthdaySelects(value) {
+  const parts = String(value || '').split('-').map(Number);
+  if (parts.length === 3 && !parts.some(isNaN)) {
+    $('f-birth-month').value = String(parts[1]);
+    $('f-birth-day').value = String(parts[2]);
+  } else {
+    $('f-birth-month').value = '';
+    $('f-birth-day').value = '';
+  }
+  syncBirthdayHidden();
 }
 
 // ============ 登録・編集シート ============
@@ -650,6 +705,7 @@ function openEntry(id) {
       const el = formEl.elements.namedItem(key);
       if (el) el.value = friend[key] || '';
     });
+    setBirthdaySelects(friend.birthday);
     setChipValue('bookStatus', friend.bookStatus || '');
     setChipValue('circleStatus', friend.circleStatus || '');
     setChipValue('currentStage', friend.currentStage || '');
@@ -806,6 +862,10 @@ function applyAiResult(parsed) {
           (key === 'currentStage' && CURRENT_STAGE_OPTIONS.includes(value))) {
         setChipValue(key, value);
       }
+      return;
+    }
+    if (key === 'birthday') {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) setBirthdaySelects(value);
       return;
     }
     const el = formEl.elements.namedItem(key);

@@ -29,14 +29,17 @@ var FIELDS = [
   { key: 'fatherJob', label: '仕事：父' },
   { key: 'motherJob', label: '仕事：母' },
   { key: 'siblings', label: '兄弟' },
+  { key: 'occupation', label: '仕事' },
   { key: 'education', label: '最終学歴' },
   { key: 'educationReason', label: 'なぜその選択をしたのか？' },
+  { key: 'rHobby', label: '趣味' },
   { key: 'rWhyLike', label: 'なぜ好きなのか？' },
   { key: 'rHowStarted', label: '始めたきっかけは？' },
   { key: 'rClubs', label: '小中高大学の部活' },
   { key: 'rWhyClub', label: 'なぜその部活を選んだのか？' },
   { key: 'mExcitement', label: 'どんなことにワクワクするのか？' },
   { key: 'mWhySpend', label: 'なぜそこにお金を使うのか？' },
+  { key: 'dVision', label: 'ビジョン' },
   { key: 'dWhyVision', label: 'なぜそのビジョンがあるのか？' },
   { key: 'dWork', label: '仕事' },
   { key: 'dPrivate', label: 'プライベート' },
@@ -141,6 +144,14 @@ function getSheet_() {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(ALL_COLUMNS);
     sheet.setFrozenRows(1);
+    return sheet;
+  }
+  // 既存シートに項目が追加された場合、ヘッダー行に不足している列を追記する
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var missing = ALL_COLUMNS.filter(function (c) { return headers.indexOf(c) === -1; });
+  if (missing.length > 0) {
+    sheet.getRange(1, lastCol + 1, 1, missing.length).setValues([missing]);
   }
   return sheet;
 }
@@ -219,18 +230,25 @@ function saveFriend(data) {
     var id = data.id ? String(data.id) : Utilities.getUuid();
 
     var existingRow = data.id ? findRowIndexById_(sheet, headers, data.id) : -1;
+    var existingRowValues = existingRow !== -1 ? sheet.getRange(existingRow, 1, 1, headers.length).getValues()[0] : null;
     var createdAt = now;
-    if (existingRow !== -1) {
+    if (existingRowValues) {
       var createdAtColIndex = headers.indexOf('createdAt');
-      var existingCreatedAt = sheet.getRange(existingRow, createdAtColIndex + 1).getValue();
+      var existingCreatedAt = existingRowValues[createdAtColIndex];
       if (existingCreatedAt) createdAt = existingCreatedAt;
     }
 
-    var rowValues = headers.map(function (key) {
+    var rowValues = headers.map(function (key, idx) {
       if (key === 'id') return id;
       if (key === 'createdAt') return createdAt;
       if (key === 'updatedAt') return now;
-      return data[key] !== undefined && data[key] !== null ? String(data[key]) : '';
+      // 送信データにそのキー自体が含まれていない場合（項目を持たない古いUIからの
+      // 更新など）は、既存の値を消さずに維持する。キーはあるが空文字の場合は
+      // 意図的なクリアとして扱い、空で上書きする。
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        return data[key] !== undefined && data[key] !== null ? String(data[key]) : '';
+      }
+      return existingRowValues ? existingRowValues[idx] : '';
     });
 
     if (existingRow !== -1) {
