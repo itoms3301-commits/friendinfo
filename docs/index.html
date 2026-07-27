@@ -806,7 +806,23 @@ function editFromDetail() {
 }
 
 // ============ 登録・編集シート ============
-function openEntry(id) {
+async function openEntry(id) {
+  let friend = id ? friends.find(f => f.id === id) : null;
+
+  if (id && !friend) {
+    // ローカルの一覧が最新でない可能性があるので、一度だけサーバーから再取得してみる
+    await loadFriends();
+    friend = friends.find(f => f.id === id);
+  }
+
+  if (id && !friend) {
+    // 再取得しても見つからない場合は、空の新規登録フォームとして扱わず、
+    // はっきりエラーを出す（サイレントに「登録」モードへ落ちて情報が消えたように
+    // 見えるのを防ぐ）
+    showToast('友達データを読み込めませんでした。一覧を開き直してください', true);
+    return;
+  }
+
   const formEl = $('friendForm');
   formEl.reset();
   $('f-id').value = '';
@@ -817,7 +833,6 @@ function openEntry(id) {
   document.querySelectorAll('#friendForm details.section').forEach((d, i) => { d.open = i === 0; });
 
   editingId = null;
-  const friend = id ? friends.find(f => f.id === id) : null;
 
   if (friend) {
     editingId = friend.id;
