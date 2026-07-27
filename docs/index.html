@@ -176,6 +176,16 @@ textarea { resize: vertical; }
   background: var(--card); border: 1.5px solid #F3D0D6; color: var(--shu); border-radius: 14px; padding: 16px 18px; font-weight: 700;
 }
 
+.detail-text {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px;
+  font-family: var(--mono); font-size: 13px; line-height: 1.9; white-space: pre-wrap; word-break: break-word;
+  color: var(--ink); -webkit-user-select: text; user-select: text;
+}
+.detail-copy-btn {
+  background: var(--card); border: 1.5px solid var(--ai); color: var(--ai); border-radius: 14px; padding: 16px 18px; font-weight: 700;
+}
+.detail-copy-btn:active { transform: scale(0.98); }
+
 .scan-overlay {
   position: fixed; inset: 0; background: rgba(36,37,42,0.92); z-index: 80; display: none;
   flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #fff; text-align: center; padding: 0 30px;
@@ -256,6 +266,22 @@ textarea { resize: vertical; }
   <div class="list-title" id="listCount"></div>
   <div class="receipt">
     <div id="friendList"></div>
+  </div>
+</div>
+
+<!-- Detail sheet（閲覧・コピー用） -->
+<div class="sheet" id="detailSheet">
+  <div class="sheet-head">
+    <button class="close-btn" onclick="closeDetail()">← 戻る</button>
+    <span class="title" id="detail-title">友達の詳細</span>
+    <span style="width:52px"></span>
+  </div>
+  <div class="sheet-body">
+    <pre class="detail-text" id="detail-text"></pre>
+  </div>
+  <div class="submit-bar">
+    <button type="button" class="detail-copy-btn" id="detailCopyBtn" onclick="copyDetailText()">📋 コピー</button>
+    <button type="button" class="submit-btn" id="detailEditBtn" onclick="editFromDetail()">編集する</button>
   </div>
 </div>
 
@@ -541,6 +567,12 @@ function formatBirthday(b) {
   return p.length === 3 ? `${Number(p[1])}/${Number(p[2])}` : b;
 }
 
+function formatBirthdayLong(b) {
+  if (!b) return '';
+  const p = b.split('-');
+  return p.length === 3 ? `${Number(p[1])}月${Number(p[2])}日` : b;
+}
+
 function formatMoveOut(v) {
   if (!v) return null;
   const p = v.split('-');
@@ -605,7 +637,7 @@ function renderList() {
     if (f.bookStatus) chips.push(`<span class="info-chip">📚 ${escapeHtml(f.bookStatus)}</span>`);
     if (f.currentStage) chips.push(`<span class="info-chip">⭐ ${escapeHtml(f.currentStage)}</span>`);
 
-    return `<div class="f-row" onclick="openEntry('${f.id}')">
+    return `<div class="f-row" onclick="openDetail('${f.id}')">
       <div class="top">
         <span class="name">${escapeHtml(f.name || '(名前未登録)')}</span>
         <span class="rel">${escapeHtml(f.relationship || '')}</span>
@@ -682,6 +714,95 @@ function setBirthdaySelects(value) {
     $('f-birth-day').value = '';
   }
   syncBirthdayHidden();
+}
+
+// ============ 詳細表示（閲覧・コピー） ============
+let detailFriendId = null;
+
+function buildDetailText(f) {
+  const v = val => val || '';
+  const bookLine = (f.bookStatus === 'その他' && f.bookStatusNote) ? `その他（${f.bookStatusNote}）` : (f.bookStatus || '未');
+  const circleLine = (f.circleStatus === 'その他' && f.circleStatusNote) ? `その他（${f.circleStatusNote}）` : (f.circleStatus || '未');
+
+  return [
+    `名前: ${v(f.name)}`,
+    `関係: ${v(f.relationship)}`,
+    `誕生日：${formatBirthdayLong(f.birthday)}`,
+    `F：出身: ${v(f.hometown)}`,
+    `現在: ${v(f.currentLocation)}`,
+    `仕事:父 ${v(f.fatherJob)}              母 ${v(f.motherJob)}`,
+    `兄弟: ${v(f.siblings)}`,
+    `O：`,
+    `仕事: ${v(f.occupation)}`,
+    `最終学歴: ${v(f.education)}`,
+    `なぜその選択をしたのか？${v(f.educationReason)}`,
+    ``,
+    `R：`,
+    `趣味: ${v(f.rHobby)}`,
+    `なぜ好きなのか？${v(f.rWhyLike)}`,
+    `始めたきっかけは？${v(f.rHowStarted)}`,
+    `小中高大学の部活: ${v(f.rClubs)}`,
+    `なぜその部活を選んだのか？${v(f.rWhyClub)}`,
+    `M：`,
+    `どんなことにワクワクするのか？${v(f.mExcitement)}`,
+    `なぜそこにお金を使うのか？${v(f.mWhySpend)}`,
+    `D：`,
+    `ビジョン: ${v(f.dVision)}`,
+    `なぜそのビジョンがあるのか？${v(f.dWhyVision)}`,
+    `仕事: ${v(f.dWork)}`,
+    `プライベート: ${v(f.dPrivate)}`,
+    `家族: ${v(f.dFamily)}`,
+    `これからの家族: ${v(f.dFutureFamily)}`,
+    ``,
+    `本:${bookLine}`,
+    `サークル：${circleLine}`,
+    `紹介:${v(f.introStatus) || '未'}`,
+  ].join('\n');
+}
+
+function openDetail(id) {
+  const friend = friends.find(f => f.id === id);
+  if (!friend) return;
+  detailFriendId = id;
+  $('detail-title').textContent = friend.name || '(名前未登録)';
+  $('detail-text').textContent = buildDetailText(friend);
+  $('detailSheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDetail() {
+  $('detailSheet').classList.remove('open');
+  document.body.style.overflow = '';
+  detailFriendId = null;
+}
+
+async function copyDetailText() {
+  const text = $('detail-text').textContent;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      throw new Error('clipboard API unavailable');
+    }
+  } catch (err) {
+    // クリップボードAPIが使えない環境向けのフォールバック
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try { document.execCommand('copy'); } catch (e2) { /* noop */ }
+    document.body.removeChild(textarea);
+  }
+  showToast('コピーしました');
+}
+
+function editFromDetail() {
+  const id = detailFriendId;
+  closeDetail();
+  openEntry(id);
 }
 
 // ============ 登録・編集シート ============
