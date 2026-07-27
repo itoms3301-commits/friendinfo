@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <?!= include('Stylesheet'); ?>
+</head>
+<body>
+  <div id="toast" class="toast" hidden></div>
+
+  <header class="app-header">
+    <h1>友達管理</h1>
+    <nav class="tabs">
+      <button type="button" class="tab-btn active" data-tab="form" id="tabBtnForm">＋ 登録</button>
+      <button type="button" class="tab-btn" data-tab="list" id="tabBtnList">一覧・検索</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- 登録・編集フォーム -->
+    <section id="view-form" class="view">
+      <form id="friendForm">
+        <input type="hidden" id="f-id" name="id" value="">
+
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">名前 <span class="required">必須</span></span>
+            <input type="text" name="name" id="f-name" placeholder="山田 太郎" required>
+          </label>
+          <label class="field">
+            <span class="field-label">関係</span>
+            <input type="text" name="relationship" placeholder="大学の友人 など">
+          </label>
+          <label class="field">
+            <span class="field-label">誕生日</span>
+            <input type="date" name="birthday">
+            <span class="help-text">年が分からない場合は適当な年でOK（並び替えは月日のみ使用）</span>
+          </label>
+          <label class="field">
+            <span class="field-label">家の退去月</span>
+            <input type="month" name="moveOutMonth">
+          </label>
+        </div>
+
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">本</span>
+            <select name="bookStatus" id="f-bookStatus"></select>
+          </label>
+          <label class="field">
+            <span class="field-label">サークル</span>
+            <select name="circleStatus" id="f-circleStatus"></select>
+          </label>
+          <label class="field">
+            <span class="field-label">紹介</span>
+            <input type="text" name="introStatus" placeholder="未">
+          </label>
+          <label class="field">
+            <span class="field-label">現在の状態</span>
+            <select name="currentStage" id="f-currentStage"></select>
+          </label>
+        </div>
+
+        <details class="section" open>
+          <summary>F：Family（家族・出身）</summary>
+          <div class="field-grid">
+            <label class="field"><span class="field-label">出身</span><input type="text" name="hometown"></label>
+            <label class="field"><span class="field-label">現在</span><input type="text" name="currentLocation"></label>
+            <label class="field"><span class="field-label">仕事：父</span><input type="text" name="fatherJob"></label>
+            <label class="field"><span class="field-label">仕事：母</span><input type="text" name="motherJob"></label>
+            <label class="field"><span class="field-label">兄弟</span><input type="text" name="siblings"></label>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>O：Occupation（学歴・仕事）</summary>
+          <div class="field-grid">
+            <label class="field"><span class="field-label">最終学歴</span><input type="text" name="education"></label>
+            <label class="field wide"><span class="field-label">なぜその選択をしたのか？</span><textarea name="educationReason" rows="2"></textarea></label>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>R：Recreation（趣味・部活）</summary>
+          <div class="field-grid">
+            <label class="field wide"><span class="field-label">なぜ好きなのか？</span><textarea name="rWhyLike" rows="2"></textarea></label>
+            <label class="field wide"><span class="field-label">始めたきっかけは？</span><textarea name="rHowStarted" rows="2"></textarea></label>
+            <label class="field"><span class="field-label">小中高大学の部活</span><input type="text" name="rClubs"></label>
+            <label class="field wide"><span class="field-label">なぜその部活を選んだのか？</span><textarea name="rWhyClub" rows="2"></textarea></label>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>M：Message / Money</summary>
+          <div class="field-grid">
+            <label class="field wide"><span class="field-label">どんなことにワクワクするのか？</span><textarea name="mExcitement" rows="2"></textarea></label>
+            <label class="field wide"><span class="field-label">なぜそこにお金を使うのか？</span><textarea name="mWhySpend" rows="2"></textarea></label>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>D：Dream（ビジョン）</summary>
+          <div class="field-grid">
+            <label class="field wide"><span class="field-label">なぜそのビジョンがあるのか？</span><textarea name="dWhyVision" rows="2"></textarea></label>
+            <label class="field wide"><span class="field-label">仕事</span><textarea name="dWork" rows="2"></textarea></label>
+            <label class="field wide"><span class="field-label">プライベート</span><textarea name="dPrivate" rows="2"></textarea></label>
+            <label class="field wide"><span class="field-label">家族</span><textarea name="dFamily" rows="2"></textarea></label>
+            <label class="field wide"><span class="field-label">これからの家族</span><textarea name="dFutureFamily" rows="2"></textarea></label>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>その他</summary>
+          <div class="field-grid">
+            <label class="field"><span class="field-label">本（その他の場合の詳細）</span><input type="text" name="bookStatusNote"></label>
+            <label class="field"><span class="field-label">サークル（その他の場合の詳細）</span><input type="text" name="circleStatusNote"></label>
+            <label class="field wide"><span class="field-label">メモ</span><textarea name="memo" rows="3"></textarea></label>
+          </div>
+        </details>
+
+        <div class="form-actions">
+          <button type="button" id="deleteBtn" class="btn btn-danger" hidden>削除</button>
+          <span class="spacer"></span>
+          <button type="button" id="cancelEditBtn" class="btn btn-ghost" hidden>キャンセル</button>
+          <button type="submit" id="submitBtn" class="btn btn-primary">登録する</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 一覧・検索 -->
+    <section id="view-list" class="view" hidden>
+      <div class="list-toolbar">
+        <input type="search" id="searchInput" placeholder="名前・関係・メモで検索">
+        <span id="listCount" class="list-count"></span>
+        <button type="button" id="openSheetBtn" class="btn btn-ghost">スプレッドシートを開く</button>
+      </div>
+      <div class="table-wrap">
+        <table id="friendsTable">
+          <thead>
+            <tr>
+              <th data-sort="name">名前</th>
+              <th>関係</th>
+              <th data-sort="birthday">誕生日</th>
+              <th data-sort="moveOutMonth">退去月</th>
+              <th data-sort="bookStatus">本</th>
+              <th data-sort="circleStatus">サークル</th>
+              <th data-sort="currentStage">現在の状態</th>
+              <th data-sort="updatedAt">更新日</th>
+            </tr>
+          </thead>
+          <tbody id="friendsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <?!= include('JavaScript'); ?>
+</body>
+</html>
