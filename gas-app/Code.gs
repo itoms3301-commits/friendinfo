@@ -164,6 +164,7 @@ function getSheet_() {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(ALL_LABELS);
     sheet.setFrozenRows(1);
+    formatDataColumnsAsPlainText_(sheet);
     return sheet;
   }
 
@@ -199,8 +200,27 @@ function getSheet_() {
     sheet.getRange(1, lastCol + 1, 1, missingKeys.length).setValues([missingKeys.map(fieldLabel_)]);
   }
 
+  formatDataColumnsAsPlainText_(sheet);
   return sheet;
 }
+
+/**
+ * データ列を「書式なしテキスト」にする。
+ * これをしておかないと、Google スプレッドシートが "1997-05-26" のような
+ * 文字列を自動的に日付型のセルに変換してしまい、読み出したときに
+ * タイムゾーン付きの日時（例: 1997-05-26T15:00:00.000Z）になってしまう
+ * （誕生日・退去月の表示がおかしくなる原因）。
+ */
+function formatDataColumnsAsPlainText_(sheet) {
+  var numRows = Math.max(sheet.getMaxRows() - 1, 1);
+  var numCols = Math.max(sheet.getMaxColumns(), ALL_COLUMNS.length);
+  sheet.getRange(2, 1, numRows, numCols).setNumberFormat('@');
+}
+
+// セルが自動で日付型に変換されてしまっていた場合に、日付のみ／年月のみで
+// 復元すべき項目（タイムゾーン付きの日時をそのまま出さないようにするため）
+var DATE_ONLY_KEYS = ['birthday'];
+var MONTH_ONLY_KEYS = ['moveOutMonth'];
 
 function rowToObject_(headerLabels, row) {
   var obj = {};
@@ -208,7 +228,14 @@ function rowToObject_(headerLabels, row) {
     var key = LABEL_TO_KEY[headerLabels[i]] || headerLabels[i];
     var value = row[i];
     if (value instanceof Date) {
-      obj[key] = value.toISOString();
+      var tz = Session.getScriptTimeZone();
+      if (DATE_ONLY_KEYS.indexOf(key) !== -1) {
+        obj[key] = Utilities.formatDate(value, tz, 'yyyy-MM-dd');
+      } else if (MONTH_ONLY_KEYS.indexOf(key) !== -1) {
+        obj[key] = Utilities.formatDate(value, tz, 'yyyy-MM');
+      } else {
+        obj[key] = value.toISOString();
+      }
     } else {
       obj[key] = value === undefined || value === null ? '' : String(value);
     }
