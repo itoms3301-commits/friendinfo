@@ -169,6 +169,17 @@ textarea { resize: vertical; }
 }
 .detail-copy-btn:active { transform: scale(0.98); }
 
+/* コピー範囲（.detail-text）には含めない補足情報。上のテンプレート本文と区別できるようにする */
+.detail-extra { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 12px; }
+.detail-extra-label { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; display: block; }
+.detail-extra-value { font-size: 14px; margin-top: 3px; display: block; }
+.detail-extra-label-line { display: flex; align-items: center; justify-content: space-between; }
+.detail-memo-value { white-space: pre-wrap; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-top: 6px; }
+.memo-copy-btn {
+  background: var(--card); border: 1px solid var(--line); color: var(--ai); border-radius: 100px; padding: 4px 10px; font-size: 11px; font-weight: 700;
+}
+.memo-copy-btn:active { transform: scale(0.96); }
+
 .stamp-overlay { position: fixed; inset: 0; z-index: 90; display: none; align-items: center; justify-content: center; pointer-events: none; }
 .stamp-overlay.show { display: flex; }
 .hanko {
@@ -257,6 +268,24 @@ textarea { resize: vertical; }
   </div>
   <div class="sheet-body">
     <pre class="detail-text" id="detail-text"></pre>
+
+    <div class="detail-extra" id="detail-extra">
+      <div class="detail-extra-row" id="detail-moveout-row" hidden>
+        <span class="detail-extra-label">家の退去月</span>
+        <span class="detail-extra-value" id="detail-moveout-value"></span>
+      </div>
+      <div class="detail-extra-row" id="detail-stage-row" hidden>
+        <span class="detail-extra-label">現在の状態</span>
+        <span class="detail-extra-value" id="detail-stage-value"></span>
+      </div>
+      <div class="detail-extra-row" id="detail-memo-row" hidden>
+        <div class="detail-extra-label-line">
+          <span class="detail-extra-label">メモ</span>
+          <button type="button" class="memo-copy-btn" onclick="copyMemoText()">📋 コピー</button>
+        </div>
+        <div class="detail-extra-value detail-memo-value" id="detail-memo-value"></div>
+      </div>
+    </div>
   </div>
   <div class="submit-bar">
     <button type="button" class="detail-copy-btn" id="detailCopyBtn" onclick="copyDetailText()">📋 コピー</button>
@@ -291,27 +320,6 @@ textarea { resize: vertical; }
       <div class="field-block">
         <label>家の退去月</label>
         <input type="text" name="moveOutMonth" placeholder="例：2026年9月 / 2026/09">
-      </div>
-
-      <div class="field-block">
-        <label>本</label>
-        <div class="chip-row" data-chip-field="bookStatus"></div>
-        <input type="text" name="bookStatusNote" id="f-bookStatusNote" class="note-input" placeholder="本のタイトルなど、その他の内容を入力">
-      </div>
-      <div class="field-block">
-        <label>サークル</label>
-        <div class="chip-row" data-chip-field="circleStatus"></div>
-        <input type="text" name="circleStatusNote" id="f-circleStatusNote" class="note-input" placeholder="サークル名など、その他の内容を入力">
-      </div>
-      <div class="field-grid">
-        <div class="field-block">
-          <label>紹介</label>
-          <input type="text" name="introStatus" placeholder="未">
-        </div>
-      </div>
-      <div class="field-block">
-        <label>現在の状態</label>
-        <div class="chip-row" data-chip-field="currentStage"></div>
       </div>
 
       <details class="section" open>
@@ -364,6 +372,25 @@ textarea { resize: vertical; }
           <div class="field-block wide"><label>これからの家族</label><textarea name="dFutureFamily" rows="2"></textarea></div>
         </div>
       </details>
+
+      <div class="field-block">
+        <label>本</label>
+        <div class="chip-row" data-chip-field="bookStatus"></div>
+        <input type="text" name="bookStatusNote" id="f-bookStatusNote" class="note-input" placeholder="本のタイトルなど、その他の内容を入力">
+      </div>
+      <div class="field-block">
+        <label>サークル</label>
+        <div class="chip-row" data-chip-field="circleStatus"></div>
+        <input type="text" name="circleStatusNote" id="f-circleStatusNote" class="note-input" placeholder="サークル名など、その他の内容を入力">
+      </div>
+      <div class="field-block">
+        <label>紹介</label>
+        <input type="text" name="introStatus" placeholder="未">
+      </div>
+      <div class="field-block">
+        <label>現在の状態</label>
+        <div class="chip-row" data-chip-field="currentStage"></div>
+      </div>
 
       <details class="section">
         <summary>その他</summary>
@@ -701,8 +728,22 @@ function openDetail(id) {
   detailFriendId = id;
   $('detail-title').textContent = friend.name || '(名前未登録)';
   $('detail-text').textContent = buildDetailText(friend);
+
+  // コピー対象のテンプレートには含まれない補足項目（本文と混ざらないよう別枠で表示する）
+  setDetailExtraRow('detail-moveout-row', 'detail-moveout-value', friend.moveOutMonth ? formatMoveOut(friend.moveOutMonth) : '');
+  setDetailExtraRow('detail-stage-row', 'detail-stage-value', friend.currentStage || '');
+  setDetailExtraRow('detail-memo-row', 'detail-memo-value', friend.memo || '');
+
   $('detailSheet').classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+function setDetailExtraRow(rowId, valueId, text) {
+  const row = $(rowId);
+  const value = $(valueId);
+  if (!text) { row.hidden = true; return; }
+  value.textContent = text;
+  row.hidden = false;
 }
 
 function closeDetail() {
@@ -711,14 +752,13 @@ function closeDetail() {
   detailFriendId = null;
 }
 
-async function copyDetailText() {
-  const text = $('detail-text').textContent;
+async function copyTextToClipboard(text) {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(text);
-    } else {
-      throw new Error('clipboard API unavailable');
+      return;
     }
+    throw new Error('clipboard API unavailable');
   } catch (err) {
     // クリップボードAPIが使えない環境向けのフォールバック
     const textarea = document.createElement('textarea');
@@ -731,7 +771,16 @@ async function copyDetailText() {
     try { document.execCommand('copy'); } catch (e2) { /* noop */ }
     document.body.removeChild(textarea);
   }
+}
+
+async function copyDetailText() {
+  await copyTextToClipboard($('detail-text').textContent);
   showToast('コピーしました');
+}
+
+async function copyMemoText() {
+  await copyTextToClipboard($('detail-memo-value').textContent);
+  showToast('メモをコピーしました');
 }
 
 function editFromDetail() {
