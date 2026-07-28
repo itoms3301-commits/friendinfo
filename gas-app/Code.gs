@@ -7,9 +7,13 @@
 
 var SHEET_NAME = '友達データ';
 
-// 進捗管理系のプルダウン選択肢（登録フォームと同じ並び順で管理する）
-var BOOK_STATUS_OPTIONS = ['未', '金父', 'CFQ', 'その他'];
-var CIRCLE_STATUS_OPTIONS = ['未', 'びすとろ', 'Change', 'その他'];
+// 進捗管理系の選択肢（登録フォームと同じ並び順で管理する）
+// 本・イベントは複数選択（チェックボックス）に対応するため、旧バージョンの
+// 単一選択肢定数（BOOK_STATUS_OPTIONS / CIRCLE_STATUS_OPTIONS）は
+// 過去データ互換のためだけに残している。
+var BOOK_STATUS_OPTIONS = ['未', '金父', 'CFQ', 'その他']; // 互換用（新規保存では使わない）
+var CIRCLE_STATUS_OPTIONS = ['未', 'びすとろ', 'Change', 'その他']; // 互換用（新規保存では使わない）
+var BOOK_STAGE_OPTIONS = ['提案中', '購入', '読書中', '読了'];
 var CURRENT_STAGE_OPTIONS = [
   '情報提供',
   '可能性を感じる',
@@ -49,10 +53,16 @@ var FIELDS = [
   { key: 'dPrivate', label: 'プライベート' },
   { key: 'dFamily', label: '家族' },
   { key: 'dFutureFamily', label: 'これからの家族' },
-  { key: 'bookStatus', label: '本' },
-  { key: 'bookStatusNote', label: '本（その他の場合の詳細）' },
-  { key: 'circleStatus', label: 'サークル' },
-  { key: 'circleStatusNote', label: 'サークル（その他の場合の詳細）' },
+  { key: 'bookStatus', label: '本（旧・互換用）' },
+  { key: 'bookKinfu', label: '本：金父' },
+  { key: 'bookCfq', label: '本：CFQ' },
+  { key: 'bookOther', label: '本：その他' },
+  { key: 'bookStatusNote', label: '本：その他の詳細' },
+  { key: 'circleStatus', label: 'イベント（旧・互換用）' },
+  { key: 'circleBistro', label: 'イベント：びすとろ' },
+  { key: 'circleChange', label: 'イベント：Change' },
+  { key: 'circleOther', label: 'イベント：その他' },
+  { key: 'circleStatusNote', label: 'イベント：その他の詳細' },
   { key: 'introStatus', label: '紹介' },
   { key: 'currentStage', label: '現在の状態' },
   { key: 'memo', label: 'メモ' },
@@ -151,6 +161,7 @@ function getFormConfig() {
     fields: FIELDS,
     bookStatusOptions: BOOK_STATUS_OPTIONS,
     circleStatusOptions: CIRCLE_STATUS_OPTIONS,
+    bookStageOptions: BOOK_STAGE_OPTIONS,
     currentStageOptions: CURRENT_STAGE_OPTIONS,
   };
 }
