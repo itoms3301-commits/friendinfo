@@ -289,6 +289,7 @@ textarea { resize: vertical; }
   </div>
   <div class="submit-bar">
     <button type="button" class="detail-copy-btn" id="detailCopyBtn" onclick="copyDetailText()">📋 コピー</button>
+    <button type="button" class="delete-btn" onclick="handleDelete(detailFriendId, closeDetail)">削除</button>
     <button type="button" class="submit-btn" id="detailEditBtn" onclick="editFromDetail()">編集する</button>
   </div>
 </div>
@@ -401,7 +402,7 @@ textarea { resize: vertical; }
     </form>
   </div>
   <div class="submit-bar">
-    <button type="button" class="delete-btn" id="deleteBtn" hidden onclick="handleDelete()">削除</button>
+    <button type="button" class="delete-btn" id="deleteBtn" hidden onclick="handleDelete(editingId, closeEntry)">削除</button>
     <button type="button" class="submit-btn" id="submitBtn" onclick="handleSubmit()">登録する</button>
   </div>
 </div>
@@ -894,14 +895,14 @@ async function handleSubmit() {
   }
 }
 
-async function handleDelete() {
-  if (!editingId) return;
+async function handleDelete(id, onClosed) {
+  if (!id) return;
   if (!window.confirm('この友達の情報を削除しますか？この操作は取り消せません。')) return;
 
   try {
-    await postToGas({ action: 'delete', id: editingId });
-    friends = friends.filter(f => f.id !== editingId);
-    closeEntry();
+    await postToGas({ action: 'delete', id });
+    friends = friends.filter(f => f.id !== id);
+    onClosed();
     renderList();
     showToast('削除しました');
     loadFriends();
