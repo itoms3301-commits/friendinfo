@@ -147,6 +147,7 @@ textarea { resize: vertical; }
 .section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 14px 0; }
 .section summary { font-weight: 700; cursor: pointer; padding: 4px 0; font-size: 14px; }
 .section[open] summary { margin-bottom: 8px; }
+.section-title { font-weight: 700; padding: 4px 0; font-size: 14px; margin-bottom: 8px; }
 
 .submit-bar { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 20px calc(14px + var(--safe-b)); background: linear-gradient(transparent, var(--paper) 30%); display: flex; gap: 8px; }
 .submit-btn {
@@ -164,6 +165,8 @@ textarea { resize: vertical; }
   font-family: var(--mono); font-size: 13px; line-height: 1.9; white-space: pre-wrap; word-break: break-word;
   color: var(--ink); -webkit-user-select: text; user-select: text;
 }
+/* 未入力の項目は薄く表示し、埋まっている情報が一目で分かるようにする */
+.detail-line-empty { color: var(--muted); opacity: 0.6; }
 .detail-copy-btn {
   background: var(--card); border: 1.5px solid var(--ai); color: var(--ai); border-radius: 14px; padding: 16px 18px; font-weight: 700;
 }
@@ -202,11 +205,12 @@ textarea { resize: vertical; }
 .modal-save { background: var(--ink); color: #fff; border-radius: 12px; padding: 15px; font-size: 15px; font-weight: 700; }
 
 .toast {
-  position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-70px); background: var(--ink); color: #fff;
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-90px); background: var(--ink); color: #fff;
   border-radius: 100px; padding: 11px 20px; font-size: 13px; z-index: 100; transition: transform .3s cubic-bezier(.34,1.4,.64,1);
   white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
 }
-.toast.show { transform: translateX(-50%) translateY(0); }
+/* headerの下に出す（タイトルと重ならないように） */
+.toast.show { transform: translateX(-50%) translateY(50px); }
 .toast.err { background: var(--shu); }
 /* エラーメッセージは省略せず、詳しい原因が読めるように折り返して全文表示する */
 .toast.err.show {
@@ -374,23 +378,26 @@ textarea { resize: vertical; }
         </div>
       </details>
 
-      <div class="field-block">
-        <label>本</label>
-        <div class="chip-row" data-chip-field="bookStatus"></div>
-        <input type="text" name="bookStatusNote" id="f-bookStatusNote" class="note-input" placeholder="本のタイトルなど、その他の内容を入力">
-      </div>
-      <div class="field-block">
-        <label>サークル</label>
-        <div class="chip-row" data-chip-field="circleStatus"></div>
-        <input type="text" name="circleStatusNote" id="f-circleStatusNote" class="note-input" placeholder="サークル名など、その他の内容を入力">
-      </div>
-      <div class="field-block">
-        <label>紹介</label>
-        <input type="text" name="introStatus" placeholder="未">
-      </div>
-      <div class="field-block">
-        <label>現在の状態</label>
-        <div class="chip-row" data-chip-field="currentStage"></div>
+      <div class="section">
+        <div class="section-title">進捗状況</div>
+        <div class="field-block">
+          <label>本</label>
+          <div class="chip-row" data-chip-field="bookStatus"></div>
+          <input type="text" name="bookStatusNote" id="f-bookStatusNote" class="note-input" placeholder="本のタイトルなど、その他の内容を入力">
+        </div>
+        <div class="field-block">
+          <label>サークル</label>
+          <div class="chip-row" data-chip-field="circleStatus"></div>
+          <input type="text" name="circleStatusNote" id="f-circleStatusNote" class="note-input" placeholder="サークル名など、その他の内容を入力">
+        </div>
+        <div class="field-block">
+          <label>紹介</label>
+          <input type="text" name="introStatus" placeholder="未">
+        </div>
+        <div class="field-block" style="margin-bottom: 0;">
+          <label>現在の状態</label>
+          <div class="chip-row" data-chip-field="currentStage"></div>
+        </div>
       </div>
 
       <details class="section">
@@ -571,6 +578,12 @@ function formatMoveOut(v) {
   return parts ? `${parts.year}/${parts.month}` : v;
 }
 
+function formatMoveOutLong(v) {
+  if (!v) return '';
+  const parts = parseMoveOutParts(v);
+  return parts ? `${parts.year}年${parts.month}月` : v;
+}
+
 function rankOf(options, value) {
   const idx = options.indexOf(value);
   return idx === -1 ? options.length : idx;
@@ -583,6 +596,8 @@ function matchesSearch(f, text) {
 }
 
 function renderSummary() {
+  document.querySelector('.summary').hidden = friends.length === 0;
+  if (friends.length === 0) return;
   const birthdaySoon = friends.filter(f => { const d = daysUntilNextBirthday(f.birthday); return d !== null && d <= 30; }).length;
   const moveOutSoon = friends.filter(f => { const m = monthsFromNow(f.moveOutMonth); return m !== null && m >= 0 && m <= 3; }).length;
   $('sum-birthday').innerHTML = `${birthdaySoon}<small>人</small>`;
@@ -627,6 +642,7 @@ function renderList() {
       chips.push(`<span class="info-chip ${mMonths !== null && mMonths >= 0 && mMonths <= 3 ? 'blue' : ''}">${label}</span>`);
     }
     if (f.bookStatus) chips.push(`<span class="info-chip">📚 ${escapeHtml(f.bookStatus)}</span>`);
+    if (f.circleStatus) chips.push(`<span class="info-chip">👥 ${escapeHtml(f.circleStatus)}</span>`);
     if (f.currentStage) chips.push(`<span class="info-chip">⭐ ${escapeHtml(f.currentStage)}</span>`);
 
     return `<div class="f-row" onclick="openDetail('${f.id}')">
@@ -682,45 +698,64 @@ function updateNoteVisibility(fieldName) {
 // ============ 詳細表示（閲覧・コピー） ============
 let detailFriendId = null;
 
-function buildDetailText(f) {
+// 詳細ページのコピー用テンプレートを行の配列として組み立てる。
+// 各行に「値が入っているか」を持たせておき、画面表示では未入力の行を
+// 薄く表示して、埋まっている項目が一目で分かるようにする
+// （コピーするテキスト自体はこれまでと完全に同じ）。
+function buildDetailLines(f) {
   const v = val => val || '';
   const bookLine = (f.bookStatus === 'その他' && f.bookStatusNote) ? `その他（${f.bookStatusNote}）` : (f.bookStatus || '未');
   const circleLine = (f.circleStatus === 'その他' && f.circleStatusNote) ? `その他（${f.circleStatusNote}）` : (f.circleStatus || '未');
 
+  const line = (text, filled) => ({ text, filled: !!filled });
+  const header = (text) => ({ text, filled: true });
+  const blank = () => ({ text: '', filled: true });
+
   return [
-    `名前: ${v(f.name)}`,
-    `関係: ${v(f.relationship)}`,
-    `誕生日：${formatBirthdayLong(f.birthday)}`,
-    `F：出身: ${v(f.hometown)}`,
-    `現在: ${v(f.currentLocation)}`,
-    `仕事:父 ${v(f.fatherJob)}              母 ${v(f.motherJob)}`,
-    `兄弟: ${v(f.siblings)}`,
-    `O：`,
-    `仕事: ${v(f.occupation)}`,
-    `最終学歴: ${v(f.education)}`,
-    `なぜその選択をしたのか？${v(f.educationReason)}`,
-    ``,
-    `R：`,
-    `趣味: ${v(f.rHobby)}`,
-    `なぜ好きなのか？${v(f.rWhyLike)}`,
-    `始めたきっかけは？${v(f.rHowStarted)}`,
-    `小中高大学の部活: ${v(f.rClubs)}`,
-    `なぜその部活を選んだのか？${v(f.rWhyClub)}`,
-    `M：`,
-    `どんなことにワクワクするのか？${v(f.mExcitement)}`,
-    `なぜそこにお金を使うのか？${v(f.mWhySpend)}`,
-    `D：`,
-    `ビジョン: ${v(f.dVision)}`,
-    `なぜそのビジョンがあるのか？${v(f.dWhyVision)}`,
-    `仕事: ${v(f.dWork)}`,
-    `プライベート: ${v(f.dPrivate)}`,
-    `家族: ${v(f.dFamily)}`,
-    `これからの家族: ${v(f.dFutureFamily)}`,
-    ``,
-    `本:${bookLine}`,
-    `サークル：${circleLine}`,
-    `紹介:${v(f.introStatus) || '未'}`,
-  ].join('\n');
+    line(`名前: ${v(f.name)}`, f.name),
+    line(`関係: ${v(f.relationship)}`, f.relationship),
+    line(`誕生日：${formatBirthdayLong(f.birthday)}`, f.birthday),
+    line(`F：出身: ${v(f.hometown)}`, f.hometown),
+    line(`現在: ${v(f.currentLocation)}`, f.currentLocation),
+    line(`仕事:父 ${v(f.fatherJob)}              母 ${v(f.motherJob)}`, f.fatherJob || f.motherJob),
+    line(`兄弟: ${v(f.siblings)}`, f.siblings),
+    header(`O：`),
+    line(`仕事: ${v(f.occupation)}`, f.occupation),
+    line(`最終学歴: ${v(f.education)}`, f.education),
+    line(`なぜその選択をしたのか？${v(f.educationReason)}`, f.educationReason),
+    blank(),
+    header(`R：`),
+    line(`趣味: ${v(f.rHobby)}`, f.rHobby),
+    line(`なぜ好きなのか？${v(f.rWhyLike)}`, f.rWhyLike),
+    line(`始めたきっかけは？${v(f.rHowStarted)}`, f.rHowStarted),
+    line(`小中高大学の部活: ${v(f.rClubs)}`, f.rClubs),
+    line(`なぜその部活を選んだのか？${v(f.rWhyClub)}`, f.rWhyClub),
+    header(`M：`),
+    line(`どんなことにワクワクするのか？${v(f.mExcitement)}`, f.mExcitement),
+    line(`なぜそこにお金を使うのか？${v(f.mWhySpend)}`, f.mWhySpend),
+    header(`D：`),
+    line(`ビジョン: ${v(f.dVision)}`, f.dVision),
+    line(`なぜそのビジョンがあるのか？${v(f.dWhyVision)}`, f.dWhyVision),
+    line(`仕事: ${v(f.dWork)}`, f.dWork),
+    line(`プライベート: ${v(f.dPrivate)}`, f.dPrivate),
+    line(`家族: ${v(f.dFamily)}`, f.dFamily),
+    line(`これからの家族: ${v(f.dFutureFamily)}`, f.dFutureFamily),
+    blank(),
+    line(`本:${bookLine}`, true),
+    line(`サークル：${circleLine}`, true),
+    line(`紹介:${v(f.introStatus) || '未'}`, true),
+  ];
+}
+
+function buildDetailText(f) {
+  return buildDetailLines(f).map(l => l.text).join('\n');
+}
+
+function renderDetailLines(f) {
+  const html = buildDetailLines(f)
+    .map(l => `<span${l.filled ? '' : ' class="detail-line-empty"'}>${escapeHtml(l.text)}</span>`)
+    .join('\n');
+  $('detail-text').innerHTML = html;
 }
 
 function openDetail(id) {
@@ -728,14 +763,16 @@ function openDetail(id) {
   if (!friend) return;
   detailFriendId = id;
   $('detail-title').textContent = friend.name || '(名前未登録)';
-  $('detail-text').textContent = buildDetailText(friend);
+  renderDetailLines(friend);
 
   // コピー対象のテンプレートには含まれない補足項目（本文と混ざらないよう別枠で表示する）
-  setDetailExtraRow('detail-moveout-row', 'detail-moveout-value', friend.moveOutMonth ? formatMoveOut(friend.moveOutMonth) : '');
+  setDetailExtraRow('detail-moveout-row', 'detail-moveout-value', friend.moveOutMonth ? formatMoveOutLong(friend.moveOutMonth) : '');
   setDetailExtraRow('detail-stage-row', 'detail-stage-value', friend.currentStage || '');
   setDetailExtraRow('detail-memo-row', 'detail-memo-value', friend.memo || '');
 
-  $('detailSheet').classList.add('open');
+  const detailSheet = $('detailSheet');
+  detailSheet.querySelector('.sheet-body').scrollTop = 0;
+  detailSheet.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
 
@@ -838,6 +875,7 @@ async function openEntry(id) {
     $('deleteBtn').hidden = true;
   }
 
+  $('sheet').querySelector('.sheet-body').scrollTop = 0;
   $('sheet').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
