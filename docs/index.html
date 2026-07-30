@@ -132,13 +132,6 @@ input[type="text"], input[type="date"], input[type="month"], textarea, select.pl
 input:focus, textarea:focus, select:focus { border-color: var(--ai); }
 textarea { resize: vertical; }
 
-.check-item { margin-bottom: 6px; }
-.checkbox-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 14px; cursor: pointer; }
-.checkbox-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--ai); flex-shrink: 0; }
-
-.note-input { margin-top: 6px; margin-left: 26px; display: none; width: calc(100% - 26px); }
-.note-input.show { display: block; }
-
 .help-text { display: block; font-size: 11px; color: var(--muted); margin-top: 4px; }
 
 .section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 14px 0; }
@@ -368,34 +361,14 @@ textarea { resize: vertical; }
       <div class="section">
         <div class="section-title">進捗状況</div>
 
-        <div class="field-block">
-          <label>本（複数選択可）</label>
-          <div class="check-item">
-            <label class="checkbox-row"><input type="checkbox" id="f-book-kinfu-check"> 金父</label>
-            <select class="note-input" id="f-book-kinfu-stage"></select>
-          </div>
-          <div class="check-item">
-            <label class="checkbox-row"><input type="checkbox" id="f-book-cfq-check"> CFQ</label>
-            <select class="note-input" id="f-book-cfq-stage"></select>
-          </div>
-          <div class="check-item">
-            <label class="checkbox-row"><input type="checkbox" id="f-book-other-check"> その他</label>
-            <input type="text" name="bookStatusNote" id="f-bookStatusNote" class="note-input" placeholder="本のタイトルなど、その他の内容を入力">
-          </div>
+        <div class="field-block wide">
+          <label>本</label>
+          <textarea name="book" rows="2" placeholder="例: 金父：読書中、CFQ：購入　複数ある場合は改行やカンマで区切ってください"></textarea>
         </div>
 
-        <div class="field-block">
-          <label>イベント（複数選択可）</label>
-          <div class="check-item">
-            <label class="checkbox-row"><input type="checkbox" id="f-event-bistro-check"> びすとろ</label>
-          </div>
-          <div class="check-item">
-            <label class="checkbox-row"><input type="checkbox" id="f-event-change-check"> Change</label>
-          </div>
-          <div class="check-item">
-            <label class="checkbox-row"><input type="checkbox" id="f-event-other-check"> その他</label>
-            <input type="text" name="circleStatusNote" id="f-circleStatusNote" class="note-input" placeholder="イベント名など、その他の内容を入力">
-          </div>
+        <div class="field-block wide">
+          <label>イベント</label>
+          <textarea name="event" rows="2" placeholder="例: びすとろ、Change　複数ある場合は改行やカンマで区切ってください"></textarea>
         </div>
 
         <div class="field-block">
@@ -444,11 +417,6 @@ textarea { resize: vertical; }
 
 <script>
 // ============ 項目定義 ============
-// 本・イベントは複数選択（チェックボックス）。BOOK_STATUS_OPTIONS/CIRCLE_STATUS_OPTIONSは
-// 旧・単一選択形式で保存された過去データの互換表示にのみ使う。
-const BOOK_STATUS_OPTIONS = ['未', '金父', 'CFQ', 'その他'];
-const CIRCLE_STATUS_OPTIONS = ['未', 'びすとろ', 'Change', 'その他'];
-const BOOK_STAGE_OPTIONS = ['提案中', '購入', '読書中', '読了'];
 const CURRENT_STAGE_OPTIONS = ['情報提供', '可能性を感じる', '求めているものを明確にする', '学ぶ人を決める', '具体的なリスクを取る'];
 
 const $ = id => document.getElementById(id);
@@ -475,42 +443,11 @@ function init() {
   loadFriends();
 }
 
-// ============ 進捗状況（本・イベントのチェックボックス／現在の状態のプルダウン） ============
+// ============ 進捗状況（現在の状態のプルダウン） ============
 function initProgressControls() {
   const stageSel = $('f-currentStage');
   stageSel.innerHTML = '<option value="">未選択</option>' +
     CURRENT_STAGE_OPTIONS.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('');
-
-  [$('f-book-kinfu-stage'), $('f-book-cfq-stage')].forEach(sel => {
-    sel.innerHTML = '<option value="">段階を選択</option>' +
-      BOOK_STAGE_OPTIONS.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('');
-  });
-
-  wireBookCheckbox($('f-book-kinfu-check'), $('f-book-kinfu-stage'));
-  wireBookCheckbox($('f-book-cfq-check'), $('f-book-cfq-stage'));
-  wireNoteCheckbox($('f-book-other-check'), $('f-bookStatusNote'));
-  wireNoteCheckbox($('f-event-other-check'), $('f-circleStatusNote'));
-}
-
-// チェックすると段階プルダウンが現れ、初回チェック時は最初の段階（提案中）を自動選択する。
-// チェックを外すと段階も未選択に戻す。
-function wireBookCheckbox(checkboxEl, stageSelectEl) {
-  checkboxEl.addEventListener('change', () => {
-    stageSelectEl.classList.toggle('show', checkboxEl.checked);
-    if (checkboxEl.checked) {
-      if (!stageSelectEl.value) stageSelectEl.value = BOOK_STAGE_OPTIONS[0];
-    } else {
-      stageSelectEl.value = '';
-    }
-  });
-}
-
-// チェックすると詳細のテキスト入力欄が現れる（本・イベントの「その他」用）
-function wireNoteCheckbox(checkboxEl, noteEl) {
-  checkboxEl.addEventListener('change', () => {
-    noteEl.classList.toggle('show', checkboxEl.checked);
-    if (!checkboxEl.checked) noteEl.value = '';
-  });
 }
 
 // ============ JSONP (GASからの読み取り) ============
@@ -686,8 +623,8 @@ function renderList() {
       const label = mMonths !== null && mMonths <= 3 && mMonths >= 0 ? `🏠 ${formatMoveOut(f.moveOutMonth)}(あと${mMonths}ヶ月)` : `🏠 ${formatMoveOut(f.moveOutMonth)}`;
       chips.push(`<span class="info-chip ${mMonths !== null && mMonths >= 0 && mMonths <= 3 ? 'blue' : ''}">${label}</span>`);
     }
-    getBookEntries(f).forEach(entry => chips.push(`<span class="info-chip">📚 ${escapeHtml(entry)}</span>`));
-    getEventEntries(f).forEach(entry => chips.push(`<span class="info-chip">👥 ${escapeHtml(entry)}</span>`));
+    splitEntries(f.book).forEach(entry => chips.push(`<span class="info-chip">📚 ${escapeHtml(entry)}</span>`));
+    splitEntries(f.event).forEach(entry => chips.push(`<span class="info-chip">👥 ${escapeHtml(entry)}</span>`));
     if (f.currentStage) chips.push(`<span class="info-chip">⭐ ${escapeHtml(f.currentStage)}</span>`);
 
     return `<div class="f-row" onclick="openDetail('${f.id}')">
@@ -704,108 +641,11 @@ function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// ============ チップ選択（本・サークル・現在の状態） ============
-// 本の実効状態を返す。新項目（bookKinfu等）があればそれを優先し、無ければ
-// 旧・単一選択形式（bookStatus）から一度きりの互換表示を行う
-// （新項目としてサーバーに書き戻すのは、実際にフォームを保存したときのみ）。
-function resolveBookState(f) {
-  const hasNew = !!(f.bookKinfu || f.bookCfq || f.bookOther);
-  if (hasNew) {
-    return {
-      kinfuChecked: !!f.bookKinfu, kinfuStage: f.bookKinfu || '',
-      cfqChecked: !!f.bookCfq, cfqStage: f.bookCfq || '',
-      otherChecked: !!f.bookOther, otherNote: f.bookStatusNote || '',
-    };
-  }
-  return {
-    kinfuChecked: f.bookStatus === '金父', kinfuStage: '',
-    cfqChecked: f.bookStatus === 'CFQ', cfqStage: '',
-    otherChecked: f.bookStatus === 'その他', otherNote: f.bookStatusNote || '',
-  };
-}
-
-function resolveEventState(f) {
-  const hasNew = !!(f.circleBistro || f.circleChange || f.circleOther);
-  if (hasNew) {
-    return {
-      bistroChecked: !!f.circleBistro,
-      changeChecked: !!f.circleChange,
-      otherChecked: !!f.circleOther, otherNote: f.circleStatusNote || '',
-    };
-  }
-  return {
-    bistroChecked: f.circleStatus === 'びすとろ',
-    changeChecked: f.circleStatus === 'Change',
-    otherChecked: f.circleStatus === 'その他', otherNote: f.circleStatusNote || '',
-  };
-}
-
-function getBookEntries(f) {
-  const s = resolveBookState(f);
-  const entries = [];
-  if (s.kinfuChecked) entries.push(s.kinfuStage ? `金父(${s.kinfuStage})` : '金父');
-  if (s.cfqChecked) entries.push(s.cfqStage ? `CFQ(${s.cfqStage})` : 'CFQ');
-  if (s.otherChecked) entries.push(s.otherNote ? `その他（${s.otherNote}）` : 'その他');
-  return entries;
-}
-
-function formatBookLine(f) {
-  const entries = getBookEntries(f);
-  return entries.length ? entries.join('、') : '未';
-}
-
-function getEventEntries(f) {
-  const s = resolveEventState(f);
-  const entries = [];
-  if (s.bistroChecked) entries.push('びすとろ');
-  if (s.changeChecked) entries.push('Change');
-  if (s.otherChecked) entries.push(s.otherNote ? `その他（${s.otherNote}）` : 'その他');
-  return entries;
-}
-
-function formatEventLine(f) {
-  const entries = getEventEntries(f);
-  return entries.length ? entries.join('、') : '未';
-}
-
-// フォームのチェックボックス／段階プルダウンから保存用データを組み立てる
-function getBookAndEventFormData() {
-  return {
-    bookKinfu: $('f-book-kinfu-check').checked ? ($('f-book-kinfu-stage').value || BOOK_STAGE_OPTIONS[0]) : '',
-    bookCfq: $('f-book-cfq-check').checked ? ($('f-book-cfq-stage').value || BOOK_STAGE_OPTIONS[0]) : '',
-    bookOther: $('f-book-other-check').checked ? 'その他' : '',
-    circleBistro: $('f-event-bistro-check').checked ? 'びすとろ' : '',
-    circleChange: $('f-event-change-check').checked ? 'Change' : '',
-    circleOther: $('f-event-other-check').checked ? 'その他' : '',
-  };
-}
-
-// friendのデータから本・イベントのチェックボックス／段階プルダウンの表示状態を復元する
-function populateBookAndEventFields(friend) {
-  const book = resolveBookState(friend);
-  $('f-book-kinfu-check').checked = book.kinfuChecked;
-  $('f-book-kinfu-stage').value = book.kinfuStage;
-  $('f-book-kinfu-stage').classList.toggle('show', book.kinfuChecked);
-
-  $('f-book-cfq-check').checked = book.cfqChecked;
-  $('f-book-cfq-stage').value = book.cfqStage;
-  $('f-book-cfq-stage').classList.toggle('show', book.cfqChecked);
-
-  $('f-book-other-check').checked = book.otherChecked;
-  $('f-bookStatusNote').value = book.otherNote;
-  $('f-bookStatusNote').classList.toggle('show', book.otherChecked);
-
-  const event = resolveEventState(friend);
-  $('f-event-bistro-check').checked = event.bistroChecked;
-  $('f-event-change-check').checked = event.changeChecked;
-  $('f-event-other-check').checked = event.otherChecked;
-  $('f-circleStatusNote').value = event.otherNote;
-  $('f-circleStatusNote').classList.toggle('show', event.otherChecked);
-}
-
-// 新規登録時：チェック状態・段階プルダウン・メモ欄の表示をすべて空に戻す
-function resetBookAndEventFields() {
-  populateBookAndEventFields({});
+// ============ 本・イベント（自由入力の単一列） ============
+// 一覧のバッジ表示用に、改行やカンマ区切りで複数項目を分けて表示する
+// （保存自体は1つの列にまとめたテキストとして行う）。
+function splitEntries(text) {
+  return String(text || '').split(/[\n,、]/).map(s => s.trim()).filter(Boolean);
 }
 
 // ============ 詳細表示（閲覧・コピー） ============
@@ -817,8 +657,6 @@ let detailFriendId = null;
 // （コピーするテキスト自体はこれまでと完全に同じ）。
 function buildDetailLines(f) {
   const v = val => val || '';
-  const bookEntries = getBookEntries(f);
-  const eventEntries = getEventEntries(f);
 
   const line = (text, filled) => ({ text, filled: !!filled });
   const header = (text) => ({ text, filled: true });
@@ -844,8 +682,8 @@ function buildDetailLines(f) {
     header(`D：`),
     line(`ビジョン: ${v(f.dVision)}`, f.dVision),
     blank(),
-    line(`本:${bookEntries.length ? bookEntries.join('、') : '未'}`, bookEntries.length > 0),
-    line(`イベント：${eventEntries.length ? eventEntries.join('、') : '未'}`, eventEntries.length > 0),
+    line(`本:${v(f.book) || '未'}`, f.book),
+    line(`イベント：${v(f.event) || '未'}`, f.event),
     line(`紹介:${v(f.introStatus) || '未'}`, !!f.introStatus),
   ];
 }
@@ -951,7 +789,6 @@ async function openEntry(id) {
   const formEl = $('friendForm');
   formEl.reset();
   $('f-id').value = '';
-  resetBookAndEventFields();
   document.querySelectorAll('#friendForm details.section').forEach((d, i) => { d.open = i === 0; });
 
   editingId = null;
@@ -963,7 +800,6 @@ async function openEntry(id) {
       const el = formEl.elements.namedItem(key);
       if (el) el.value = friend[key] || '';
     });
-    populateBookAndEventFields(friend);
     document.querySelectorAll('#friendForm details.section').forEach(d => { d.open = true; });
     $('sheet-title').textContent = `${friend.name || '(名前未登録)'} を編集`;
     $('submitBtn').textContent = '更新する';
@@ -988,7 +824,6 @@ function collectFormData() {
   const formEl = $('friendForm');
   const data = {};
   new FormData(formEl).forEach((value, key) => { data[key] = value; });
-  Object.assign(data, getBookAndEventFormData());
   return data;
 }
 

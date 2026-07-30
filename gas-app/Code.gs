@@ -8,12 +8,8 @@
 var SHEET_NAME = '友達データ';
 
 // 進捗管理系の選択肢（登録フォームと同じ並び順で管理する）
-// 本・イベントは複数選択（チェックボックス）に対応するため、旧バージョンの
-// 単一選択肢定数（BOOK_STATUS_OPTIONS / CIRCLE_STATUS_OPTIONS）は
-// 過去データ互換のためだけに残している。
-var BOOK_STATUS_OPTIONS = ['未', '金父', 'CFQ', 'その他']; // 互換用（新規保存では使わない）
-var CIRCLE_STATUS_OPTIONS = ['未', 'びすとろ', 'Change', 'その他']; // 互換用（新規保存では使わない）
-var BOOK_STAGE_OPTIONS = ['提案中', '購入', '読書中', '読了'];
+// 本・イベントは自由入力の1列にまとめているため、選択肢は持たない
+// （現在の状態のみ固定のプルダウン選択肢を持つ）。
 var CURRENT_STAGE_OPTIONS = [
   '情報提供',
   '可能性を感じる',
@@ -43,16 +39,8 @@ var FIELDS = [
   { key: 'rClubs', label: '小中高大学の部活' },
   { key: 'mNote', label: 'M：Message / Money' },
   { key: 'dVision', label: 'ビジョン' },
-  { key: 'bookStatus', label: '本（旧・互換用）' },
-  { key: 'bookKinfu', label: '本：金父' },
-  { key: 'bookCfq', label: '本：CFQ' },
-  { key: 'bookOther', label: '本：その他' },
-  { key: 'bookStatusNote', label: '本：その他の詳細' },
-  { key: 'circleStatus', label: 'イベント（旧・互換用）' },
-  { key: 'circleBistro', label: 'イベント：びすとろ' },
-  { key: 'circleChange', label: 'イベント：Change' },
-  { key: 'circleOther', label: 'イベント：その他' },
-  { key: 'circleStatusNote', label: 'イベント：その他の詳細' },
+  { key: 'book', label: '本' },
+  { key: 'event', label: 'イベント' },
   { key: 'introStatus', label: '紹介' },
   { key: 'currentStage', label: '現在の状態' },
   { key: 'memo', label: 'メモ' },
@@ -168,9 +156,6 @@ function include(filename) {
 function getFormConfig() {
   return {
     fields: FIELDS,
-    bookStatusOptions: BOOK_STATUS_OPTIONS,
-    circleStatusOptions: CIRCLE_STATUS_OPTIONS,
-    bookStageOptions: BOOK_STAGE_OPTIONS,
     currentStageOptions: CURRENT_STAGE_OPTIONS,
   };
 }
@@ -189,6 +174,7 @@ function getSheet_() {
   }
 
   mergeRemovedFieldsIntoTargets_(sheet);
+  mergeBookEventColumns_(sheet);
 
   var lastCol = sheet.getLastColumn();
   var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
@@ -292,6 +278,137 @@ function mergeRemovedFieldsIntoTargets_(sheet) {
   // 統合済みの列を後ろのインデックスから順に削除する（前から消すと後続のインデックスがずれるため）
   removedColIndexes
     .slice()
+    .sort(function (a, b) { return b - a; })
+    .forEach(function (idx) { sheet.deleteColumn(idx + 1); });
+}
+
+// 本・イベントの旧・複数列（チェックボックス方式だった名残）を、1つの自由入力列へ
+// 統合するための定義。label は当時シートへ実際に書き込まれていた見出し。
+var BOOK_LEGACY_COLUMNS = [
+  { label: '本（旧・互換用）', subKey: 'legacyStatus' },
+  { label: '本：金父', subKey: 'kinfu' },
+  { label: '本：CFQ', subKey: 'cfq' },
+  { label: '本：その他', subKey: 'other' },
+  { label: '本：その他の詳細', subKey: 'otherNote' },
+];
+var EVENT_LEGACY_COLUMNS = [
+  { label: 'イベント（旧・互換用）', subKey: 'legacyStatus' },
+  { label: 'イベント：びすとろ', subKey: 'bistro' },
+  { label: 'イベント：Change', subKey: 'change' },
+  { label: 'イベント：その他', subKey: 'other' },
+  { label: 'イベント：その他の詳細', subKey: 'otherNote' },
+];
+
+/** 本の旧・複数列の値から、1つの自由入力文字列（例: 金父(読書中)、その他（銀のさじ））を組み立てる */
+function formatBookLegacyText_(v) {
+  var entries = [];
+  if (v.kinfu) entries.push('金父(' + v.kinfu + ')');
+  else if (v.legacyStatus === '金父') entries.push('金父');
+  if (v.cfq) entries.push('CFQ(' + v.cfq + ')');
+  else if (v.legacyStatus === 'CFQ') entries.push('CFQ');
+  if (v.other || v.legacyStatus === 'その他') entries.push(v.otherNote ? 'その他（' + v.otherNote + '）' : 'その他');
+  return entries.join('、');
+}
+
+/** イベントの旧・複数列の値から、1つの自由入力文字列を組み立てる */
+function formatEventLegacyText_(v) {
+  var entries = [];
+  if (v.bistro || v.legacyStatus === 'びすとろ') entries.push('びすとろ');
+  if (v.change || v.legacyStatus === 'Change') entries.push('Change');
+  if (v.other || v.legacyStatus === 'その他') entries.push(v.otherNote ? 'その他（' + v.otherNote + '）' : 'その他');
+  return entries.join('、');
+}
+
+/**
+ * 本・イベントが複数列（チェックボックス＋段階／旧・単一選択形式）に分かれていた
+ * 時期のシートに対して、1つの自由入力列（book／event）へ統合してから旧列を削除する。
+ * 統合先の列（book／event）がまだ存在しない場合は末尾に空列として追加してから統合する。
+ * 該当する旧列が1つも無ければ何もしない。
+ */
+function mergeBookEventColumns_(sheet) {
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return;
+  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+
+  var bookColIndexes = {}; // subKey -> 列インデックス(0-based)
+  var eventColIndexes = {};
+  headerRow.forEach(function (label, i) {
+    BOOK_LEGACY_COLUMNS.forEach(function (f) { if (f.label === label) bookColIndexes[f.subKey] = i; });
+    EVENT_LEGACY_COLUMNS.forEach(function (f) { if (f.label === label) eventColIndexes[f.subKey] = i; });
+  });
+  var hasBookLegacy = Object.keys(bookColIndexes).length > 0;
+  var hasEventLegacy = Object.keys(eventColIndexes).length > 0;
+  if (!hasBookLegacy && !hasEventLegacy) return;
+
+  function findColIndexForKey(key) {
+    for (var i = 0; i < headerRow.length; i++) {
+      if (LABEL_TO_KEY[headerRow[i]] === key) return i;
+    }
+    return -1;
+  }
+
+  var neededTargetKeys = [];
+  if (hasBookLegacy && findColIndexForKey('book') === -1) neededTargetKeys.push('book');
+  if (hasEventLegacy && findColIndexForKey('event') === -1) neededTargetKeys.push('event');
+  if (neededTargetKeys.length > 0) {
+    sheet.getRange(1, lastCol + 1, 1, neededTargetKeys.length).setValues([neededTargetKeys.map(fieldLabel_)]);
+    lastCol += neededTargetKeys.length;
+    headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  }
+  var bookTargetIdx = hasBookLegacy ? findColIndexForKey('book') : -1;
+  var eventTargetIdx = hasEventLegacy ? findColIndexForKey('event') : -1;
+
+  if (lastRow >= 2) {
+    var numRows = lastRow - 1;
+    var dataRange = sheet.getRange(2, 1, numRows, lastCol);
+    var values = dataRange.getValues();
+    var changed = false;
+
+    function cellStr(row, idx) {
+      if (idx === undefined) return '';
+      var val = row[idx];
+      return val === undefined || val === null ? '' : String(val).trim();
+    }
+
+    for (var r = 0; r < values.length; r++) {
+      var row = values[r];
+      if (hasBookLegacy && bookTargetIdx !== -1) {
+        var bookText = formatBookLegacyText_({
+          legacyStatus: cellStr(row, bookColIndexes.legacyStatus),
+          kinfu: cellStr(row, bookColIndexes.kinfu),
+          cfq: cellStr(row, bookColIndexes.cfq),
+          other: cellStr(row, bookColIndexes.other),
+          otherNote: cellStr(row, bookColIndexes.otherNote),
+        });
+        if (bookText) {
+          var existingBook = cellStr(row, bookTargetIdx);
+          row[bookTargetIdx] = existingBook ? (existingBook + '\n' + bookText) : bookText;
+          changed = true;
+        }
+      }
+      if (hasEventLegacy && eventTargetIdx !== -1) {
+        var eventText = formatEventLegacyText_({
+          legacyStatus: cellStr(row, eventColIndexes.legacyStatus),
+          bistro: cellStr(row, eventColIndexes.bistro),
+          change: cellStr(row, eventColIndexes.change),
+          other: cellStr(row, eventColIndexes.other),
+          otherNote: cellStr(row, eventColIndexes.otherNote),
+        });
+        if (eventText) {
+          var existingEvent = cellStr(row, eventTargetIdx);
+          row[eventTargetIdx] = existingEvent ? (existingEvent + '\n' + eventText) : eventText;
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) dataRange.setValues(values);
+  }
+
+  var toDelete = Object.keys(bookColIndexes).map(function (k) { return bookColIndexes[k]; })
+    .concat(Object.keys(eventColIndexes).map(function (k) { return eventColIndexes[k]; }));
+  toDelete
     .sort(function (a, b) { return b - a; })
     .forEach(function (idx) { sheet.deleteColumn(idx + 1); });
 }
