@@ -24,9 +24,9 @@ var CURRENT_STAGE_OPTIONS = [
 
 // フォーム項目の定義。label はフォームでの表示名、sheetLabel は
 // スプレッドシートの列見出し専用の表示名（省略時はlabelを使う）。
-// O:仕事(occupation) と D:仕事(dWork) は label が同じ「仕事」だが、
-// スプレッドシートは見出し1行だけでセクションの区別がつかないため
-// sheetLabel で区別する。
+// occupation の sheetLabel「仕事（現在）」は、過去にD:仕事(dWork)という
+// 同名フィールドが別途存在していた名残（dWorkは削除しdVisionへ統合済み）。
+// 既存シートの見出しをこれ以上変えないよう、そのまま維持している。
 var FIELDS = [
   { key: 'name', label: '名前' },
   { key: 'relationship', label: '関係' },
@@ -39,20 +39,10 @@ var FIELDS = [
   { key: 'siblings', label: '兄弟' },
   { key: 'occupation', label: '仕事', sheetLabel: '仕事（現在）' },
   { key: 'education', label: '最終学歴' },
-  { key: 'educationReason', label: 'なぜその選択をしたのか？' },
   { key: 'rHobby', label: '趣味' },
-  { key: 'rWhyLike', label: 'なぜ好きなのか？' },
-  { key: 'rHowStarted', label: '始めたきっかけは？' },
   { key: 'rClubs', label: '小中高大学の部活' },
-  { key: 'rWhyClub', label: 'なぜその部活を選んだのか？' },
-  { key: 'mExcitement', label: 'どんなことにワクワクするのか？' },
-  { key: 'mWhySpend', label: 'なぜそこにお金を使うのか？' },
+  { key: 'mNote', label: 'M：Message / Money' },
   { key: 'dVision', label: 'ビジョン' },
-  { key: 'dWhyVision', label: 'なぜそのビジョンがあるのか？' },
-  { key: 'dWork', label: '仕事', sheetLabel: '仕事（将来）' },
-  { key: 'dPrivate', label: 'プライベート' },
-  { key: 'dFamily', label: '家族' },
-  { key: 'dFutureFamily', label: 'これからの家族' },
   { key: 'bookStatus', label: '本（旧・互換用）' },
   { key: 'bookKinfu', label: '本：金父' },
   { key: 'bookCfq', label: '本：CFQ' },
@@ -86,6 +76,25 @@ var ALL_LABELS = ALL_COLUMNS.map(fieldLabel_); // スプレッドシートの列
 // 列見出し（日本語） -> 内部キー の逆引き
 var LABEL_TO_KEY = {};
 ALL_COLUMNS.forEach(function (key, i) { LABEL_TO_KEY[ALL_LABELS[i]] = key; });
+
+// 廃止した列。既存シートに残っている場合は、値を統合先の列へ改行で追記した上で
+// 列ごと削除する（getSheet_() 内の mergeRemovedFieldsIntoTargets_ が実行）。
+// label は削除当時にシートへ実際に書き込まれていた見出し（sheetLabel優先）。
+var REMOVED_FIELDS = [
+  { label: 'なぜその選択をしたのか？', targetKey: 'occupation' },
+  { label: 'なぜ好きなのか？', targetKey: 'rHobby' },
+  { label: '始めたきっかけは？', targetKey: 'rHobby' },
+  { label: 'なぜその部活を選んだのか？', targetKey: 'rClubs' },
+  { label: 'どんなことにワクワクするのか？', targetKey: 'mNote' },
+  { label: 'なぜそこにお金を使うのか？', targetKey: 'mNote' },
+  { label: 'なぜそのビジョンがあるのか？', targetKey: 'dVision' },
+  { label: '仕事（将来）', targetKey: 'dVision' },
+  { label: 'プライベート', targetKey: 'dVision' },
+  { label: '家族', targetKey: 'dVision' },
+  { label: 'これからの家族', targetKey: 'dVision' },
+];
+var REMOVED_FIELD_MERGE_MAP = {};
+REMOVED_FIELDS.forEach(function (f) { REMOVED_FIELD_MERGE_MAP[f.label] = f; });
 
 /**
  * doGet は2つの用途を兼ねる:
@@ -179,6 +188,8 @@ function getSheet_() {
     return sheet;
   }
 
+  mergeRemovedFieldsIntoTargets_(sheet);
+
   var lastCol = sheet.getLastColumn();
   var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
 
@@ -213,6 +224,76 @@ function getSheet_() {
 
   formatDataColumnsAsPlainText_(sheet);
   return sheet;
+}
+
+/**
+ * 廃止した列（REMOVED_FIELDS）がシートに残っていた場合、値を統合先の列へ
+ * 改行区切りで追記してから、その列自体を削除する。
+ * 統合先の列がまだ存在しない場合（例: mNoteは旧シートには無い新設列）は
+ * 末尾に空列として追加してから統合する。
+ * 該当する列が1つも無ければ何もしない（毎回のアクセスで無駄な書き込みをしない）。
+ */
+function mergeRemovedFieldsIntoTargets_(sheet) {
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return;
+  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+
+  var removedColIndexes = [];
+  headerRow.forEach(function (label, i) {
+    if (REMOVED_FIELD_MERGE_MAP[label]) removedColIndexes.push(i);
+  });
+  if (removedColIndexes.length === 0) return;
+
+  function findColIndexForKey(key) {
+    for (var i = 0; i < headerRow.length; i++) {
+      if (LABEL_TO_KEY[headerRow[i]] === key) return i;
+    }
+    return -1;
+  }
+
+  var neededTargetKeys = [];
+  removedColIndexes.forEach(function (idx) {
+    var key = REMOVED_FIELD_MERGE_MAP[headerRow[idx]].targetKey;
+    if (findColIndexForKey(key) === -1 && neededTargetKeys.indexOf(key) === -1) {
+      neededTargetKeys.push(key);
+    }
+  });
+  if (neededTargetKeys.length > 0) {
+    sheet.getRange(1, lastCol + 1, 1, neededTargetKeys.length).setValues([neededTargetKeys.map(fieldLabel_)]);
+    lastCol += neededTargetKeys.length;
+    headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  }
+
+  if (lastRow >= 2) {
+    var numRows = lastRow - 1;
+    var dataRange = sheet.getRange(2, 1, numRows, lastCol);
+    var values = dataRange.getValues();
+    var changed = false;
+
+    removedColIndexes.forEach(function (srcIdx) {
+      var mergeInfo = REMOVED_FIELD_MERGE_MAP[headerRow[srcIdx]];
+      var targetIdx = findColIndexForKey(mergeInfo.targetKey);
+      if (targetIdx === -1) return; // 統合先列が見つからない場合は安全側に倒して何もしない
+      for (var r = 0; r < values.length; r++) {
+        var oldVal = values[r][srcIdx];
+        var oldStr = oldVal === undefined || oldVal === null ? '' : String(oldVal).trim();
+        if (!oldStr) continue;
+        var targetVal = values[r][targetIdx];
+        var targetStr = targetVal === undefined || targetVal === null ? '' : String(targetVal);
+        values[r][targetIdx] = targetStr ? (targetStr + '\n' + oldStr) : oldStr;
+        changed = true;
+      }
+    });
+
+    if (changed) dataRange.setValues(values);
+  }
+
+  // 統合済みの列を後ろのインデックスから順に削除する（前から消すと後続のインデックスがずれるため）
+  removedColIndexes
+    .slice()
+    .sort(function (a, b) { return b - a; })
+    .forEach(function (idx) { sheet.deleteColumn(idx + 1); });
 }
 
 /**

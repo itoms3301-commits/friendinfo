@@ -338,40 +338,30 @@ textarea { resize: vertical; }
       <details class="section">
         <summary>O：Occupation（学歴・仕事）</summary>
         <div class="field-grid">
-          <div class="field-block wide"><label>仕事</label><input type="text" name="occupation"></div>
+          <div class="field-block wide"><label>仕事</label><textarea name="occupation" rows="3"></textarea></div>
           <div class="field-block wide"><label>最終学歴</label><input type="text" name="education"></div>
-          <div class="field-block wide"><label>なぜその選択をしたのか？</label><textarea name="educationReason" rows="2"></textarea></div>
         </div>
       </details>
 
       <details class="section">
         <summary>R：Recreation（趣味・部活）</summary>
         <div class="field-grid">
-          <div class="field-block wide"><label>趣味</label><input type="text" name="rHobby"></div>
-          <div class="field-block wide"><label>なぜ好きなのか？</label><textarea name="rWhyLike" rows="2"></textarea></div>
-          <div class="field-block wide"><label>始めたきっかけは？</label><textarea name="rHowStarted" rows="2"></textarea></div>
-          <div class="field-block wide"><label>小中高大学の部活</label><input type="text" name="rClubs"></div>
-          <div class="field-block wide"><label>なぜその部活を選んだのか？</label><textarea name="rWhyClub" rows="2"></textarea></div>
+          <div class="field-block wide"><label>趣味</label><textarea name="rHobby" rows="3"></textarea></div>
+          <div class="field-block wide"><label>小中高大学の部活</label><textarea name="rClubs" rows="3"></textarea></div>
         </div>
       </details>
 
       <details class="section">
         <summary>M：Message / Money</summary>
         <div class="field-grid">
-          <div class="field-block wide"><label>どんなことにワクワクするのか？</label><textarea name="mExcitement" rows="2"></textarea></div>
-          <div class="field-block wide"><label>なぜそこにお金を使うのか？</label><textarea name="mWhySpend" rows="2"></textarea></div>
+          <div class="field-block wide"><label>M：Message / Money</label><textarea name="mNote" rows="3"></textarea></div>
         </div>
       </details>
 
       <details class="section">
         <summary>D：Dream（ビジョン）</summary>
         <div class="field-grid">
-          <div class="field-block wide"><label>ビジョン</label><input type="text" name="dVision"></div>
-          <div class="field-block wide"><label>なぜそのビジョンがあるのか？</label><textarea name="dWhyVision" rows="2"></textarea></div>
-          <div class="field-block wide"><label>仕事</label><textarea name="dWork" rows="2"></textarea></div>
-          <div class="field-block wide"><label>プライベート</label><textarea name="dPrivate" rows="2"></textarea></div>
-          <div class="field-block wide"><label>家族</label><textarea name="dFamily" rows="2"></textarea></div>
-          <div class="field-block wide"><label>これからの家族</label><textarea name="dFutureFamily" rows="2"></textarea></div>
+          <div class="field-block wide"><label>ビジョン</label><textarea name="dVision" rows="5"></textarea></div>
         </div>
       </details>
 
@@ -845,24 +835,14 @@ function buildDetailLines(f) {
     header(`O：`),
     line(`仕事: ${v(f.occupation)}`, f.occupation),
     line(`最終学歴: ${v(f.education)}`, f.education),
-    line(`なぜその選択をしたのか？${v(f.educationReason)}`, f.educationReason),
     blank(),
     header(`R：`),
     line(`趣味: ${v(f.rHobby)}`, f.rHobby),
-    line(`なぜ好きなのか？${v(f.rWhyLike)}`, f.rWhyLike),
-    line(`始めたきっかけは？${v(f.rHowStarted)}`, f.rHowStarted),
     line(`小中高大学の部活: ${v(f.rClubs)}`, f.rClubs),
-    line(`なぜその部活を選んだのか？${v(f.rWhyClub)}`, f.rWhyClub),
     header(`M：`),
-    line(`どんなことにワクワクするのか？${v(f.mExcitement)}`, f.mExcitement),
-    line(`なぜそこにお金を使うのか？${v(f.mWhySpend)}`, f.mWhySpend),
+    line(`${v(f.mNote)}`, f.mNote),
     header(`D：`),
     line(`ビジョン: ${v(f.dVision)}`, f.dVision),
-    line(`なぜそのビジョンがあるのか？${v(f.dWhyVision)}`, f.dWhyVision),
-    line(`仕事: ${v(f.dWork)}`, f.dWork),
-    line(`プライベート: ${v(f.dPrivate)}`, f.dPrivate),
-    line(`家族: ${v(f.dFamily)}`, f.dFamily),
-    line(`これからの家族: ${v(f.dFutureFamily)}`, f.dFutureFamily),
     blank(),
     line(`本:${bookEntries.length ? bookEntries.join('、') : '未'}`, bookEntries.length > 0),
     line(`イベント：${eventEntries.length ? eventEntries.join('、') : '未'}`, eventEntries.length > 0),
