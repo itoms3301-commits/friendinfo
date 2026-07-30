@@ -332,7 +332,7 @@ textarea { resize: vertical; }
         <summary>O：Occupation（学歴・仕事）</summary>
         <div class="field-grid">
           <div class="field-block wide"><label>仕事</label><textarea name="occupation" rows="3"></textarea></div>
-          <div class="field-block wide"><label>最終学歴</label><input type="text" name="education"></div>
+          <div class="field-block wide"><label>最終学歴</label><textarea name="education" rows="2"></textarea></div>
         </div>
       </details>
 
@@ -855,7 +855,12 @@ async function handleSubmit() {
       $('stamp-overlay').classList.remove('show');
       closeEntry();
       renderList();
-      showToast(wasEditing ? '更新しました' : '登録しました。続けて次の友達を登録できます');
+      if (wasEditing) {
+        showToast('更新しました');
+      } else {
+        showToast('登録しました');
+        openDetail(data.id); // 登録した友達の詳細をそのまま表示する
+      }
       loadFriends(); // サーバーの状態と再同期
     }, 700);
   } catch (err) {
