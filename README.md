@@ -36,13 +36,13 @@ docs/       GitHub Pagesで公開する静的サイト版フロントエンド
 1. Googleスプレッドシートを新規作成する（例：「友達管理」）
 2. メニューの「拡張機能」→「Apps Script」を開く
 3. デフォルトの `コード.gs` を削除し、`gas-app/Code.gs` の内容を貼り付ける
-4. 左側の「＋」→「HTML」で `Index`・`Stylesheet`・`JavaScript` という名前のファイルを作成し、それぞれ `gas-app/Index.html`・`gas-app/Stylesheet.html`・`gas-app/JavaScript.html` の内容を貼り付ける
-5. プロジェクト設定で「`appsscript.json` をエディタで表示する」を有効にし、内容を `gas-app/appsscript.json` に合わせる（`access` は `ANYONE_ANONYMOUS`）
-6. 右上「デプロイ」→「新しいデプロイ」→種類「ウェブアプリ」
+4. 右上「デプロイ」→「新しいデプロイ」→種類「ウェブアプリ」
    - 「次のユーザーとして実行」：自分
    - 「アクセスできるユーザー」：**全員**
-     （GitHub Pages側の静的サイトから認証なしで読み書きするため、この設定が必須です。下記「セキュリティについて」を必ずお読みください）
-7. デプロイ後に表示される `https://script.google.com/macros/s/.../exec` のURLを控えておく（静的サイト側の設定で使います）
+     （GitHub Pages側の静的サイトから認証なしで読み書きするため、この設定が必須です。下記「セキュリティについて」を必ずお読みください。この設定はここで選ぶだけで反映され、`appsscript.json` を別途手動編集する必要はありません）
+5. デプロイ後に表示される `https://script.google.com/macros/s/.../exec` のURLを控えておく（静的サイト側の設定で使います）
+
+> 補足: `gas-app/Index.html`・`Stylesheet.html`・`JavaScript.html` はGitHub Pages版（`docs/index.html`）の動作には不要です。GitHub Pages側は常に `callback` パラメータ付きでアクセスするため、`Code.gs` の `doGet()` はJSONP用の分岐（`handleApiGet_`）にしか入らず、これらのファイルが無くても問題なく動作します。Apps Script上で直接開いたときの代替UI（Webアプリの exec URLを認証ありのブラウザで直接開いた場合に表示されるUI）を使いたい場合のみ、左側の「＋」→「HTML」で `Index`・`Stylesheet`・`JavaScript` という名前のファイルを作成し、それぞれ対応する内容を貼り付けてください。
 
 clasp CLIでのセットアップも可能です（`gas-app/` をそのままプッシュできます）。
 
