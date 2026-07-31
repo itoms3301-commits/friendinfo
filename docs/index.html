@@ -855,12 +855,8 @@ async function handleSubmit() {
       $('stamp-overlay').classList.remove('show');
       closeEntry();
       renderList();
-      if (wasEditing) {
-        showToast('更新しました');
-      } else {
-        showToast('登録しました');
-        openDetail(data.id); // 登録した友達の詳細をそのまま表示する
-      }
+      showToast(wasEditing ? '更新しました' : '登録しました');
+      openDetail(data.id); // 保存した友達の詳細をそのまま表示する
       loadFriends(); // サーバーの状態と再同期
     }, 700);
   } catch (err) {
