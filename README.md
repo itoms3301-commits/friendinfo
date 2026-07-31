@@ -2,7 +2,7 @@
 
 友達の情報（F/O/R/M/D形式のプロフィール、誕生日、家の退去月、読書・サークル・紹介の進捗、現在の状態など）を、Googleスプレッドシートをデータ保存先として登録・閲覧・編集できるアプリです。
 
-スマホでの利用を想定した**静的サイト版**（`docs/`、GitHub Pagesで公開してホーム画面に追加する用途）と、**Apps Script上で完結するUI版**（`gas-app/`、Apps Scriptだけで動く）の2種類のフロントエンドがあり、どちらも同じGoogle Apps Script（GAS）バックエンドを共有します。
+フロントエンドはGitHub Pagesで公開するスマホ向け静的サイト（`docs/`）のみで、Google Apps Script（GAS）はデータ保存・APIのバックエンドとしてのみ使います。
 
 ## 主な機能
 
@@ -15,14 +15,10 @@
 ## 技術構成
 
 ```
-gas-app/    Google Apps Script（バックエンド + Apps Script上で動くUI）
-  Code.gs         … スプレッドシートCRUD、doGet/doPostによるJSON API
-  Index.html       ┐
-  Stylesheet.html   ├ Apps Script上で直接開いたときのHTML UI（HTML Service）
-  JavaScript.html  ┘
-  appsscript.json  … マニフェスト（Webアプリ公開設定など）
+gas-app/    Google Apps Script（バックエンド専用。ファイルはCode.gsのみ）
+  Code.gs     … スプレッドシートCRUD、doGet/doPostによるJSON API
 
-docs/       GitHub Pagesで公開する静的サイト版フロントエンド
+docs/       GitHub Pagesで公開するフロントエンド（アプリ本体）
   index.html … 1ファイル完結のスマホ向けUI。GASへはJSONP(読み取り)・
                no-cors POST(書き込み)で通信する
 ```
@@ -35,25 +31,12 @@ docs/       GitHub Pagesで公開する静的サイト版フロントエンド
 
 1. Googleスプレッドシートを新規作成する（例：「友達管理」）
 2. メニューの「拡張機能」→「Apps Script」を開く
-3. デフォルトの `コード.gs` を削除し、`gas-app/Code.gs` の内容を貼り付ける
+3. デフォルトの `コード.gs` を削除し、`gas-app/Code.gs` の内容を貼り付ける（GAS側で必要なファイルはこれだけです）
 4. 右上「デプロイ」→「新しいデプロイ」→種類「ウェブアプリ」
    - 「次のユーザーとして実行」：自分
    - 「アクセスできるユーザー」：**全員**
-     （GitHub Pages側の静的サイトから認証なしで読み書きするため、この設定が必須です。下記「セキュリティについて」を必ずお読みください。この設定はここで選ぶだけで反映され、`appsscript.json` を別途手動編集する必要はありません）
+     （GitHub Pages側の静的サイトから認証なしで読み書きするため、この設定が必須です。下記「セキュリティについて」を必ずお読みください）
 5. デプロイ後に表示される `https://script.google.com/macros/s/.../exec` のURLを控えておく（静的サイト側の設定で使います）
-
-> 補足: `gas-app/Index.html`・`Stylesheet.html`・`JavaScript.html` はGitHub Pages版（`docs/index.html`）の動作には不要です。GitHub Pages側は常に `callback` パラメータ付きでアクセスするため、`Code.gs` の `doGet()` はJSONP用の分岐（`handleApiGet_`）にしか入らず、これらのファイルが無くても問題なく動作します。Apps Script上で直接開いたときの代替UI（Webアプリの exec URLを認証ありのブラウザで直接開いた場合に表示されるUI）を使いたい場合のみ、左側の「＋」→「HTML」で `Index`・`Stylesheet`・`JavaScript` という名前のファイルを作成し、それぞれ対応する内容を貼り付けてください。
-
-clasp CLIでのセットアップも可能です（`gas-app/` をそのままプッシュできます）。
-
-```bash
-npm install -g @google/clasp
-clasp login
-cd gas-app
-clasp create --type sheet --title "友達管理"
-clasp push
-clasp deploy
-```
 
 ### 2. GitHub Pages側のセットアップ
 
@@ -69,7 +52,6 @@ clasp deploy
 GitHub Pages（静的サイト）からGoogle Apps Scriptを呼び出す都合上、Webアプリのアクセス設定は「全員（認証不要）」にする必要があります。これはURLさえ知っていれば誰でもデータの読み書きができる状態を意味します（実質的にURLの長い乱数文字列が漏れないことに依存する運用です）。
 
 - Apps ScriptのデプロイURLは第三者に共有しないでください
-- より厳密なアクセス制御が必要な場合は、`gas-app/appsscript.json` の `access` を `MYSELF` に戻し、`gas-app/` のApps Script上で完結するUI（`Index.html`）のみを使う運用にしてください（この場合、GitHub Pages版は使えません）
 
 ## データの保存場所・バックアップ
 
@@ -79,7 +61,7 @@ GitHub Pages（静的サイト）からGoogle Apps Scriptを呼び出す都合�
 
 - スプレッドシートの列見出しは日本語ラベル（名前・関係・誕生日…）です。アプリ内部の処理は英語のキー名（name・relationship・birthdayなど）で行い、`gas-app/Code.gs` の `fieldLabel_()` / `LABEL_TO_KEY` が読み書き時に相互変換しています。「O：仕事」と「D：仕事」はフォーム上は同じ「仕事」ですが、列見出しが重複しないよう、それぞれ「仕事（現在）」「仕事（将来）」という列名にしています
   - 以前のバージョン（列見出しが英語キーそのものだった時期）に作成したシートを引き続き使っても、次回アクセス時に列の位置・データはそのままで見出しだけ自動的に日本語へ書き換わります（列が増えて重複することはありません）。ユーザーが独自に追加した列はそのまま残ります
-- 各友達のIDはクライアント側でUUIDを発行して送信します（`docs/index.html`はno-cors POSTのレスポンスを読めないため、サーバーが採番したIDを受け取れない制約への対応）。Apps Script上で完結するUI版（`google.script.run`経由）ではサーバー側で採番します
+- 各友達のIDはクライアント側でUUIDを発行して送信します（`docs/index.html`はno-cors POSTのレスポンスを読めないため、サーバーが採番したIDを受け取れない制約への対応）
 - 同時編集時の競合を避けるため、書き込み処理には `LockService` を使用しています
 - `docs/index.html` は一覧取得のたびに `loadFriends()` を呼びますが、連続登録などで複数の取得が同時に走っても、後から発行したリクエストの結果だけを反映し古い結果で上書きしないようにしています
 - 選択式項目（現在の状態）の選択肢は `gas-app/Code.gs` の `CURRENT_STAGE_OPTIONS`、および `docs/index.html` 側の同名の定数で管理しています。選択肢を増減する場合は両方を編集してください（「現在の状態」はチップ選択からプルダウン（`<select>`）に変更しました）

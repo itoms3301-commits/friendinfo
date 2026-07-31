@@ -85,22 +85,20 @@ var REMOVED_FIELD_MERGE_MAP = {};
 REMOVED_FIELDS.forEach(function (f) { REMOVED_FIELD_MERGE_MAP[f.label] = f; });
 
 /**
- * doGet は2つの用途を兼ねる:
- *  - パラメータなしでブラウザから直接開かれた場合: Apps Script上で完結するHTML UIを返す
- *  - ?callback=xxx&action=... の場合: GitHub Pages等の外部サイトから叩くJSONP API
- *    （外部オリジンからの fetch はCORSの制約を受けるため、<script>タグ読み込みで
- *    　回避できるJSONP形式でレスポンスを返す）
+ * doGet はGitHub Pages版アプリ（docs/index.html）からのJSONP形式の読み取りAPIとして使う
+ * （外部オリジンからの fetch はCORSの制約を受けるため、<script>タグ読み込みで
+ * 　回避できるJSONP形式でレスポンスを返す）。
+ * ?callback=xxx&action=... 以外の形（パラメータ無しでブラウザから直接開かれた場合など）は
+ * 案内用のテキストを返すだけで、表示するUIは持たない。
  */
 function doGet(e) {
   var params = (e && e.parameter) || {};
   if (params.callback) {
     return handleApiGet_(params);
   }
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
-    .setTitle('友達管理')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  return ContentService.createTextOutput(
+    'このURLはGitHub Pages版アプリ（friendinfo）が使うAPIエンドポイントです。ブラウザで直接開いても表示するUIはありません。'
+  );
 }
 
 function handleApiGet_(params) {
@@ -146,18 +144,6 @@ function doPost(e) {
     result = { ok: false, error: String(err && err.message ? err.message : err) };
   }
   return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
-}
-
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
-}
-
-/** クライアントにフォーム定義・選択肢を渡すための関数 */
-function getFormConfig() {
-  return {
-    fields: FIELDS,
-    currentStageOptions: CURRENT_STAGE_OPTIONS,
-  };
 }
 
 function getSheet_() {
@@ -561,9 +547,4 @@ function deleteFriend(id) {
   } finally {
     lock.releaseLock();
   }
-}
-
-/** 元データのスプレッドシートを直接開くためのURLを返す */
-function getSpreadsheetUrl() {
-  return SpreadsheetApp.getActiveSpreadsheet().getUrl();
 }
