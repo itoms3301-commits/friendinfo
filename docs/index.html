@@ -660,7 +660,6 @@ function buildDetailLines(f) {
 
   const line = (text, filled) => ({ text, filled: !!filled });
   const header = (text) => ({ text, filled: true });
-  const blank = () => ({ text: '', filled: true });
 
   return [
     line(`名前: ${v(f.name)}`, f.name),
@@ -673,17 +672,15 @@ function buildDetailLines(f) {
     header(`O：`),
     line(`仕事: ${v(f.occupation)}`, f.occupation),
     line(`最終学歴: ${v(f.education)}`, f.education),
-    blank(),
     header(`R：`),
     line(`趣味: ${v(f.rHobby)}`, f.rHobby),
     line(`小中高大学の部活: ${v(f.rClubs)}`, f.rClubs),
     header(`M：`),
     line(`${v(f.mNote)}`, f.mNote),
     header(`D：`),
-    line(`ビジョン: ${v(f.dVision)}`, f.dVision),
-    blank(),
+    line(`${v(f.dVision)}`, f.dVision),
     line(`本:${v(f.book) || '未'}`, f.book),
-    line(`イベント：${v(f.event) || '未'}`, f.event),
+    line(`イベント：\n${v(f.event) || '未'}`, f.event),
     line(`紹介:${v(f.introStatus) || '未'}`, !!f.introStatus),
   ];
 }
