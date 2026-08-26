@@ -438,9 +438,63 @@ function rowToObject_(headerLabels, row) {
   return obj;
 }
 
+/**
+ * スプレッドシートに直接行を追加した場合など、ID（およびcreatedAt/updatedAt）が
+ * 未入力のまま何らかのデータだけ入力されている行にIDを自動採番して書き戻す。
+ * ID列が空の行はlistFriends()の対象から漏れてしまう（編集・削除時に行を
+ * 一意に特定できないため）ため、Webアプリの一覧に表示されるようにする処理。
+ * 完全に空の行（何も入力されていない行）は対象にしない。
+ */
+function backfillMissingIds_(sheet) {
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return;
+
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var idColIndex = headers.indexOf(fieldLabel_('id'));
+  if (idColIndex === -1) return;
+  var createdAtColIndex = headers.indexOf(fieldLabel_('createdAt'));
+  var updatedAtColIndex = headers.indexOf(fieldLabel_('updatedAt'));
+
+  var numRows = lastRow - 1;
+  var dataRange = sheet.getRange(2, 1, numRows, lastCol);
+  var values = dataRange.getValues();
+  var changed = false;
+  var now = new Date().toISOString();
+
+  function rowHasAnyData(row) {
+    for (var i = 0; i < headers.length; i++) {
+      if (i === idColIndex || i === createdAtColIndex || i === updatedAtColIndex) continue;
+      var val = row[i];
+      if (val !== undefined && val !== null && String(val).trim() !== '') return true;
+    }
+    return false;
+  }
+
+  for (var r = 0; r < values.length; r++) {
+    var row = values[r];
+    if (row[idColIndex] || !rowHasAnyData(row)) continue;
+    row[idColIndex] = Utilities.getUuid();
+    if (createdAtColIndex !== -1 && !row[createdAtColIndex]) row[createdAtColIndex] = now;
+    if (updatedAtColIndex !== -1 && !row[updatedAtColIndex]) row[updatedAtColIndex] = now;
+    changed = true;
+  }
+
+  if (changed) dataRange.setValues(values);
+}
+
 /** 全友達データを取得する */
 function listFriends() {
   var sheet = getSheet_();
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    backfillMissingIds_(sheet);
+  } finally {
+    lock.releaseLock();
+  }
+
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
   if (lastRow < 2) return [];
